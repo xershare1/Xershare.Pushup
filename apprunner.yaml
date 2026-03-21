@@ -1,0 +1,14 @@
+# App Runner reads this when the service uses "configuration file" (repository) mode.
+# develop branch: keep ENV as dev. production branch: set ENV to prod before/after merge (see README).
+version: 1.0
+runtime: docker
+build:
+  commands:
+    build:
+      - echo "Building container image from Dockerfile"
+run:
+  network:
+    port: 8000
+  env:
+    - name: ENV
+      value: dev

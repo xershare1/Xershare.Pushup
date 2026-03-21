@@ -1,0 +1,4 @@
+{
+  "githubConnectionArn": "arn:aws:codestar-connections:REGION:ACCOUNT_ID:connection/CONNECTION_UUID",
+  "githubRepositoryUrl": "https://github.com/ORG/Xershare.Pushup"
+}
