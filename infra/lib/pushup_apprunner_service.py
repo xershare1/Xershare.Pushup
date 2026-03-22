@@ -21,7 +21,7 @@ def _context_or_placeholder(scope: Construct, key: str, placeholder: str) -> str
 
 
 class PushupApprunnerService(Construct):
-    """App Runner service from GitHub using the repo root ``Dockerfile`` + ``apprunner.yaml``."""
+    """App Runner service from GitHub using repo-root ``apprunner.yaml`` (``configuration_source=REPOSITORY``)."""
 
     def __init__(
         self,
