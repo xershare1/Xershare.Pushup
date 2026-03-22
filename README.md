@@ -32,7 +32,9 @@ docker run --rm -p 8000:8000 pushup-api
 
 If the service uses **“Configure all settings from a configuration file”** (repository mode), App Runner reads [`apprunner.yaml`](apprunner.yaml) at the **repository root**.
 
-This repo uses the **managed Python 3.11** runtime (`runtime: python311`, revised build): build installs deps with **`pip3`**, run starts **Uvicorn** on port **8000**. See [Using the Python platform](https://docs.aws.amazon.com/apprunner/latest/dg/service-source-code-python.html) and [Python runtime release information](https://docs.aws.amazon.com/apprunner/latest/dg/service-source-code-python-releases.html).
+This repo uses the **managed Python 3.11** runtime (`runtime: python311`, revised build): **`pre-run`** installs deps with **`pip3 install --no-cache-dir -r requirements.txt`** (recommended for the revised build); **`command`** runs **`python3 -m app.main`** so Uvicorn listens on App Runner’s **`PORT`** (see `app/main.py`). See [Using the Python platform](https://docs.aws.amazon.com/apprunner/latest/dg/service-source-code-python.html#service-source-code-python.callouts) and [Python runtime release information](https://docs.aws.amazon.com/apprunner/latest/dg/service-source-code-python-releases.html).
+
+**Build vs deploy:** If logs show **“Successfully built”** but **“Failed to deploy”**, the image built but the running task failed (often **health checks** or **wrong listen port**). Check **CloudWatch → App Runner → your service → Application logs**. After changing CDK health/instance settings, run **`cdk deploy`** again.
 
 The root [`Dockerfile`](Dockerfile) is **not** used by App Runner in this setup; keep it for **optional local** `docker build` / parity testing.
 
