@@ -63,14 +63,14 @@ class PushupApprunnerService(Construct):
             health_check_configuration=apprunner.CfnService.HealthCheckConfigurationProperty(
                 path="/health",
                 protocol="HTTP",
-                interval=10,
-                timeout=5,
+                interval=15,
+                timeout=10,
                 healthy_threshold=1,
                 unhealthy_threshold=5,
             ),
             instance_configuration=apprunner.CfnService.InstanceConfigurationProperty(
-                cpu="256",
-                memory="512",
+                cpu="512",
+                memory="1024",
             ),
         )
 

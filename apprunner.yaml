@@ -6,10 +6,13 @@ runtime: python311
 build:
   commands:
     build:
-      - pip3 install -r requirements.txt
+      - echo "build phase"
 run:
   runtime-version: "3.11"
-  command: python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+  pre-run:
+    - pip3 install --no-cache-dir -r requirements.txt
+  # Use app entrypoint so the process binds to App Runner's PORT env (not only 8000).
+  command: python3 -m app.main
   network:
     port: 8000
   env:
