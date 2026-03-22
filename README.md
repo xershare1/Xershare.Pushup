@@ -9,6 +9,10 @@ Minimal **FastAPI** service deployed to **AWS App Runner** with separate **dev**
 | GET    | `/`       | `{"message": "Hello World"}` |
 | GET    | `/health` | `{"status": "ok"}` |
 
+## PushupPros marketing site (XER-6)
+
+Static React (Vite) site for **pushuppros.com** lives in [`pushuppros-marketing/`](pushuppros-marketing/). CDK stack **`PushupProsWeb`** provisions **S3 + CloudFront**. See [`pushuppros-marketing/README.md`](pushuppros-marketing/README.md) for build and deploy steps.
+
 ## Run locally
 
 From the repo root:
@@ -44,7 +48,7 @@ CDK: [`infra/lib/pushup_apprunner_service.py`](infra/lib/pushup_apprunner_servic
 
 ## Infrastructure (CDK)
 
-Code lives under [`infra/`](infra/).
+Code lives under [`infra/`](infra/). Stacks include **`PushupApiDev`**, **`PushupApiProd`** (App Runner), and **`PushupProsWeb`** (S3 + CloudFront for the marketing site).
 
 ### Prerequisites
 
@@ -131,6 +135,7 @@ app/
 requirements.txt
 Dockerfile               # optional: local container; App Runner uses apprunner.yaml
 apprunner.yaml           # managed python311 build/run (port, ENV, …)
+pushuppros-marketing/     # Vite React static site (XER-6)
 infra/
   app.py                 # CDK entry
   cdk.json
@@ -140,4 +145,5 @@ infra/
   stacks/
     dev_stack.py
     prod_stack.py
+    pushup_pros_web_stack.py   # S3 + CloudFront for marketing
 ```
