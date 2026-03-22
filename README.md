@@ -30,11 +30,15 @@ docker run --rm -p 8000:8000 pushup-api
 
 ## App Runner configuration file (`apprunner.yaml`)
 
-If the service uses **“Configure all settings from a configuration file”** (repository mode), App Runner reads [`apprunner.yaml`](apprunner.yaml) at the **repository root**. It complements the root [`Dockerfile`](Dockerfile): runtime is `docker`, container port **8000**, and `ENV` is set for the process.
+If the service uses **“Configure all settings from a configuration file”** (repository mode), App Runner reads [`apprunner.yaml`](apprunner.yaml) at the **repository root**.
 
-**Important:** With repository-based config, **`ENV` is defined in this file**, not in CDK. The template uses `ENV=dev` for **`develop`**. On the **`production`** branch, set `run.env` → `value: prod` for `ENV` (commit that on `production`, or resolve it when you merge `develop` → `production` so prod does not stay on `dev`).
+This repo uses the **managed Python 3.11** runtime (`runtime: python311`, revised build): build installs deps with **`pip3`**, run starts **Uvicorn** on port **8000**. See [Using the Python platform](https://docs.aws.amazon.com/apprunner/latest/dg/service-source-code-python.html) and [Python runtime release information](https://docs.aws.amazon.com/apprunner/latest/dg/service-source-code-python-releases.html).
 
-CDK is aligned with this: [`infra/lib/pushup_apprunner_service.py`](infra/lib/pushup_apprunner_service.py) uses `configuration_source="REPOSITORY"`.
+The root [`Dockerfile`](Dockerfile) is **not** used by App Runner in this setup; keep it for **optional local** `docker build` / parity testing.
+
+**Important:** With repository-based config, **`ENV` is defined in `apprunner.yaml`**, not in CDK. The template uses `ENV=dev` for **`develop`**. On the **`production`** branch, set `run.env` → `value: prod` for `ENV` (commit that on `production`, or resolve it when you merge `develop` → `production` so prod does not stay on `dev`).
+
+CDK: [`infra/lib/pushup_apprunner_service.py`](infra/lib/pushup_apprunner_service.py) uses `configuration_source="REPOSITORY"`.
 
 ## Infrastructure (CDK)
 
@@ -123,8 +127,8 @@ After deploy, note the **ServiceUrl** output for each stack.
 app/
   main.py
 requirements.txt
-Dockerfile
-apprunner.yaml           # App Runner repo-based build/run (port, ENV, …)
+Dockerfile               # optional: local container; App Runner uses apprunner.yaml
+apprunner.yaml           # managed python311 build/run (port, ENV, …)
 infra/
   app.py                 # CDK entry
   cdk.json

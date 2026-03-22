@@ -1,3 +1,4 @@
+# Optional: local `docker build` only. App Runner uses managed Python 3.11 via apprunner.yaml.
 FROM python:3.11-slim-bookworm
 
 WORKDIR /app

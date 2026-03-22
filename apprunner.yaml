@@ -1,12 +1,15 @@
-# App Runner reads this when the service uses "configuration file" (repository) mode.
-# develop branch: keep ENV as dev. production branch: set ENV to prod before/after merge (see README).
+# Repository mode: App Runner uses the managed Python 3.11 platform (revised build).
+# develop: keep ENV dev. production branch: set ENV to prod (see README).
+# https://docs.aws.amazon.com/apprunner/latest/dg/service-source-code-python.html
 version: 1.0
-runtime: docker
+runtime: python311
 build:
   commands:
     build:
-      - echo "Building container image from Dockerfile"
+      - pip3 install -r requirements.txt
 run:
+  runtime-version: "3.11"
+  command: python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000
   network:
     port: 8000
   env:
