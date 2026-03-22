@@ -5,6 +5,7 @@ from aws_cdk import App, Environment
 
 from stacks.dev_stack import DevStack
 from stacks.prod_stack import ProdStack
+from stacks.pushup_pros_web_stack import PushupProsWebStack
 
 app = App()
 
@@ -15,5 +16,6 @@ env = Environment(
 
 DevStack(app, "PushupApiDev", env=env)
 ProdStack(app, "PushupApiProd", env=env)
+PushupProsWebStack(app, "PushupProsWeb", env=env)
 
 app.synth()
