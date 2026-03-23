@@ -1,0 +1,17 @@
+/* Shared design tokens — PushupPros marketing + product app */
+:root {
+  --bg: #0d0f12;
+  --surface: #161a20;
+  --text: #e8eaed;
+  --muted: #9aa3af;
+  --accent: #ff6b35;
+  --accent-hover: #ff8555;
+  --accent-ink: #0d0f12;
+  --border: #2a3140;
+  --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --radius: 12px;
+  --danger: #fca5a5;
+  --danger-bg: #3f1d1d;
+  --warn-bg: #3a3010;
+  --warn: #fde68a;
+}

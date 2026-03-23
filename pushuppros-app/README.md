@@ -8,10 +8,12 @@ Standalone **Vite + React** client for the PushupPros **challenge flow** ([Linea
 
 ```bash
 npm install
-npm run dev      # local dev
+npm run dev      # http://localhost:5174 (see vite.config.ts; marketing uses 5173)
 npm run build    # output to dist/
 npm run lint
 ```
+
+Styles are shared with the marketing site via [`../shared/pushuppros-theme/`](../shared/pushuppros-theme/) — edit `theme.css` imports there to keep both sites aligned.
 
 ## Environment
 

@@ -6,10 +6,20 @@ Static **Vite + React** app for [pushuppros.com](https://pushuppros.com) ([Linea
 
 ```bash
 npm install
-npm run dev      # local dev server
+npm run dev      # http://localhost:5173 (see vite.config.ts)
 npm run build    # output to dist/
 npm run lint
 ```
+
+Styles are shared with the product app via [`../shared/pushuppros-theme/`](../shared/pushuppros-theme/) — edit `theme.css` imports there to keep both sites aligned.
+
+## Environment
+
+| Variable | Purpose |
+|----------|---------|
+| `VITE_CHALLENGE_APP_URL` | Origin of the **product app** (`pushuppros-app`), no trailing slash. **Start Challenge** and Pushups guide CTAs open this URL. Default in production builds: `https://xershare.com/pushup` if unset. |
+
+Local [`.env.development`](.env.development) points to `http://localhost:5174` so the hero link matches the app dev server.
 
 ## Deploy (S3 + CloudFront)
 
@@ -40,6 +50,6 @@ Infrastructure is defined in [`../infra/stacks/pushup_pros_web_stack.py`](../inf
 | `/pushups/training` | Pushups — training |
 | `/pushups/records` | Pushups — records / leaderboard placeholder |
 
-On the **landing** page, **Start Challenge** opens `/challenge` in a **new tab** (same site).
+On the **landing** page, **Start Challenge** opens the **product app** (`VITE_CHALLENGE_APP_URL`) in a **new tab**.
 
-On **Pushups** guide pages, **Start a Pushup Challenge** links to **`https://xershare.com/pushup`** in a new tab (challenge app entry).
+On **Pushups** guide pages, **Start a Pushup Challenge** uses the same URL.

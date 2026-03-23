@@ -17,6 +17,15 @@ Static React (Vite) site for **pushuppros.com** lives in [`pushuppros-marketing/
 
 The **challenge experience** (create → share → respond → result) lives in [`pushuppros-app/`](pushuppros-app/) as a separate Vite + React app. It talks to the FastAPI service via a configurable base URL; **local dev defaults to a mock API** so you do not need challenge endpoints on the server yet. See [`pushuppros-app/README.md`](pushuppros-app/README.md).
 
+**Running both sites:** Vite is fixed to different ports so you can test end-to-end with marketing + app + API at once:
+
+| App | Dev URL | Folder |
+|-----|---------|--------|
+| Marketing | http://localhost:5173 | [`pushuppros-marketing/`](pushuppros-marketing/) |
+| Product | http://localhost:5174 | [`pushuppros-app/`](pushuppros-app/) |
+
+Shared CSS for both lives in [`shared/pushuppros-theme/`](shared/pushuppros-theme/).
+
 ## Run locally
 
 From the repo root:
