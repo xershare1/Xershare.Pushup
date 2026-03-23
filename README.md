@@ -13,6 +13,10 @@ Minimal **FastAPI** service deployed to **AWS App Runner** with separate **dev**
 
 Static React (Vite) site for **pushuppros.com** lives in [`pushuppros-marketing/`](pushuppros-marketing/). CDK stack **`PushupProsWeb`** provisions **S3 + CloudFront**. See [`pushuppros-marketing/README.md`](pushuppros-marketing/README.md) for build and deploy steps.
 
+## PushupPros product app (XER-7)
+
+The **challenge experience** (create → share → respond → result) lives in [`pushuppros-app/`](pushuppros-app/) as a separate Vite + React app. It talks to the FastAPI service via a configurable base URL; **local dev defaults to a mock API** so you do not need challenge endpoints on the server yet. See [`pushuppros-app/README.md`](pushuppros-app/README.md).
+
 ## Run locally
 
 From the repo root:
