@@ -1,6 +1,33 @@
-# Xershare Pushup API
+# Xershare Pushup
 
-Minimal **FastAPI** service deployed to **AWS App Runner** with separate **dev** and **prod** stacks (AWS CDK, Python). Scope follows [Linear XER-5](https://linear.app/xershare/issue/XER-5/setup-fastapi-hello-world-app-with-dev-and-prod-aws-app-runner).
+Monorepo for **PushupPros**: backend API, marketing site, product app, and infrastructure.
+
+## Layout
+
+```text
+backend/           # Python FastAPI — App Runner source directory
+  app/
+  apprunner.yaml
+  Dockerfile
+  requirements.txt
+
+marketing/         # Marketing site (Vite React) → S3 + CloudFront
+app/               # Product app (Vite React) → S3 + CloudFront
+shared/
+  pushuppros-theme/   # Shared CSS
+
+infra/
+  cdk/             # CDK app (run from here)
+    app.py
+    cdk.json
+    stacks/
+      acm_stack.py         # us-east-1
+      marketing_stack.py
+      app_stack.py
+      dev_stack.py
+      prod_stack.py
+    lib/
+```
 
 ## API
 
@@ -9,154 +36,36 @@ Minimal **FastAPI** service deployed to **AWS App Runner** with separate **dev**
 | GET    | `/`       | `{"message": "Hello World"}` |
 | GET    | `/health` | `{"status": "ok"}` |
 
-## PushupPros marketing site (XER-6)
-
-Static React (Vite) site for **pushuppros.com** lives in [`pushuppros-marketing/`](pushuppros-marketing/). CDK stack **`PushupProsWeb`** provisions **S3 + CloudFront**. See [`pushuppros-marketing/README.md`](pushuppros-marketing/README.md) for build and deploy steps.
-
-## PushupPros product app (XER-7)
-
-The **challenge experience** (create → share → respond → result) lives in [`pushuppros-app/`](pushuppros-app/) as a separate Vite + React app. It talks to the FastAPI service via a configurable base URL; **local dev defaults to a mock API** so you do not need challenge endpoints on the server yet. See [`pushuppros-app/README.md`](pushuppros-app/README.md).
-
-**Running both sites:** Vite is fixed to different ports so you can test end-to-end with marketing + app + API at once:
-
-| App | Dev URL | Folder |
-|-----|---------|--------|
-| Marketing | http://localhost:5173 | [`pushuppros-marketing/`](pushuppros-marketing/) |
-| Product | http://localhost:5174 | [`pushuppros-app/`](pushuppros-app/) |
-
-Shared CSS for both lives in [`shared/pushuppros-theme/`](shared/pushuppros-theme/).
-
 ## Run locally
 
-From the repo root:
+**Backend**
 
 ```powershell
-.\.venv\Scripts\Activate.ps1   # or: py -3 -m venv .venv
-pip install -r requirements.txt
+.\.venv\Scripts\Activate.ps1
+pip install -r backend/requirements.txt
 python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-Or: `python -m app.main` (uses `PORT` or `8000`).
-
-## Docker
+**Marketing** → http://localhost:5173
 
 ```powershell
-docker build -t pushup-api .
-docker run --rm -p 8000:8000 pushup-api
+cd marketing && npm install && npm run dev
 ```
 
-## App Runner configuration file (`apprunner.yaml`)
-
-If the service uses **“Configure all settings from a configuration file”** (repository mode), App Runner reads [`apprunner.yaml`](apprunner.yaml) at the **repository root**.
-
-This repo uses the **managed Python 3.11** runtime (`runtime: python311`, revised build): **`pre-run`** installs deps with **`pip3 install --no-cache-dir -r requirements.txt`** (recommended for the revised build); **`command`** runs **`python3 -m app.main`** so Uvicorn listens on App Runner’s **`PORT`** (see `app/main.py`). See [Using the Python platform](https://docs.aws.amazon.com/apprunner/latest/dg/service-source-code-python.html#service-source-code-python.callouts) and [Python runtime release information](https://docs.aws.amazon.com/apprunner/latest/dg/service-source-code-python-releases.html).
-
-**Build vs deploy:** If logs show **“Successfully built”** but **“Failed to deploy”**, the image built but the running task failed (often **health checks** or **wrong listen port**). Check **CloudWatch → App Runner → your service → Application logs**. After changing CDK health/instance settings, run **`cdk deploy`** again.
-
-The root [`Dockerfile`](Dockerfile) is **not** used by App Runner in this setup; keep it for **optional local** `docker build` / parity testing.
-
-**Important:** With repository-based config, **`ENV` is defined in `apprunner.yaml`**, not in CDK. The template uses `ENV=dev` for **`develop`**. On the **`production`** branch, set `run.env` → `value: prod` for `ENV` (commit that on `production`, or resolve it when you merge `develop` → `production` so prod does not stay on `dev`).
-
-CDK: [`infra/lib/pushup_apprunner_service.py`](infra/lib/pushup_apprunner_service.py) uses `configuration_source="REPOSITORY"`.
-
-## Infrastructure (CDK)
-
-Code lives under [`infra/`](infra/). Stacks include **`PushupApiDev`**, **`PushupApiProd`** (App Runner), and **`PushupProsWeb`** (S3 + CloudFront for the marketing site).
-
-### Prerequisites
-
-1. **Python**: use the repo `.venv` and install CDK deps:
-
-   ```powershell
-   .\.venv\Scripts\Activate.ps1
-   pip install -r infra\requirements.txt
-   ```
-
-2. **AWS CLI** configured (`aws configure` or SSO) for the account/region you deploy to.
-
-3. **AWS CDK CLI**: use a **recent** CLI so it matches `aws-cdk-lib` (schema errors mean the CLI is too old). Example:
-
-   ```powershell
-   npx aws-cdk@2.1107.0 --version
-   ```
-
-   Or install a current global `cdk` that matches your `aws-cdk-lib` major version.
-
-4. **GitHub → AWS (CodeConnections)**: in the AWS console, create a **CodeConnections** connection to GitHub and wait until status is **Available**. You need the **connection ARN** for deploy.
-
-5. **Bootstrap** (once per account/region):
-
-   ```powershell
-   npx aws-cdk@2.1107.0 bootstrap aws://ACCOUNT/REGION
-   ```
-
-### Context (required for real deploy)
-
-Set your GitHub connection and repo URL. Either copy the example file:
+**Product app** → http://localhost:5174
 
 ```powershell
-copy infra\cdk.context.example.json infra\cdk.context.json
-# edit infra\cdk.context.json — not committed (see .gitignore)
+cd app && npm install && npm run dev
 ```
 
-Or pass flags:
+See [`marketing/README.md`](marketing/README.md) and [`app/README.md`](app/README.md).
 
-```text
--c githubConnectionArn=arn:aws:codestar-connections:REGION:ACCOUNT:connection/UUID
--c githubRepositoryUrl=https://github.com/ORG/REPO
-```
+## Deploy
 
-If context is missing, `cdk synth` still works but uses **placeholders** and shows **warnings** — replace with real values before `cdk deploy`.
+CDK lives in [`infra/cdk/`](infra/cdk/). See [`infra/README.md`](infra/README.md) for stack list and deploy flow.
 
-### Stacks
+1. Deploy `PushupProsAcm` in us-east-1.
+2. Build marketing and app, then deploy marketing/app stacks with `-c certificateArn=<arn>`.
+3. Deploy API stacks (App Runner). Set source directory to `backend/` in the service config.
 
-| Stack          | App Runner service   | Git branch    | `ENV`   |
-|----------------|----------------------|---------------|---------|
-| `PushupApiDev` | `pushup-api-dev`     | `develop`     | `dev`   |
-| `PushupApiProd`| `pushup-api-prod`    | `production`  | `prod`  |
-
-### Synth & deploy
-
-From repo root (with venv activated so `python` resolves):
-
-```powershell
-cd infra
-$env:PYTHONPATH = "."
-npx aws-cdk@2.1107.0 synth
-npx aws-cdk@2.1107.0 deploy PushupApiDev PushupApiProd -c githubConnectionArn="..." -c githubRepositoryUrl="https://github.com/ORG/REPO"
-```
-
-Deploy one stack at a time if you prefer:
-
-```powershell
-npx aws-cdk@2.1107.0 deploy PushupApiDev -c githubConnectionArn="..." -c githubRepositoryUrl="..."
-```
-
-After deploy, note the **ServiceUrl** output for each stack.
-
-### Promotion (branches)
-
-- **Dev**: push to **`develop`** — App Runner can auto-rebuild when **Auto deploy** is enabled (as defined in CDK).
-- **Prod**: merge or PR **`develop` → `production`** so the prod service (tracking **`production`**) picks up the release.
-- After a merge, confirm **`apprunner.yaml`** on **`production`** has `ENV: prod` (see [App Runner configuration file](#app-runner-configuration-file-apprunneryaml)).
-
-## Layout
-
-```text
-app/
-  main.py
-requirements.txt
-Dockerfile               # optional: local container; App Runner uses apprunner.yaml
-apprunner.yaml           # managed python311 build/run (port, ENV, …)
-pushuppros-marketing/     # Vite React static site (XER-6)
-infra/
-  app.py                 # CDK entry
-  cdk.json
-  requirements.txt       # aws-cdk-lib + constructs
-  lib/
-    pushup_apprunner_service.py
-  stacks/
-    dev_stack.py
-    prod_stack.py
-    pushup_pros_web_stack.py   # S3 + CloudFront for marketing
-```
+Domains: `pushuppros.com`, `dev.pushuppros.com`, `app.pushuppros.com`, `app.dev.pushuppros.com` (Route 53).

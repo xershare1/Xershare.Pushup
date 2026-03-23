@@ -17,25 +17,15 @@ Styles are shared with the product app via [`../shared/pushuppros-theme/`](../sh
 
 | Variable | Purpose |
 |----------|---------|
-| `VITE_CHALLENGE_APP_URL` | Origin of the **product app** (`pushuppros-app`), no trailing slash. **Start Challenge** and Pushups guide CTAs open this URL. Default in production builds: `https://xershare.com/pushup` if unset. |
+| `VITE_CHALLENGE_APP_URL` | Origin of the **product app** (`app/`), no trailing slash. **Start Challenge** and Pushups guide CTAs open this URL. Default in production: `https://app.pushuppros.com` if unset. |
 
 Local [`.env.development`](.env.development) points to `http://localhost:5174` so the hero link matches the app dev server.
 
-## Deploy (S3 + CloudFront)
+## Deploy
 
-Infrastructure is defined in [`../infra/stacks/pushup_pros_web_stack.py`](../infra/stacks/pushup_pros_web_stack.py) as stack **`PushupProsWeb`**.
+CDK deploys `marketing/dist` to S3 + CloudFront. See [`../infra/README.md`](../infra/README.md) for deploy flow.
 
-1. **Deploy the stack** (once): from `infra/`, `cdk deploy PushupProsWeb`
-2. Note **SiteBucketName**, **CloudFrontDistributionId**, **CloudFrontDomainName** from stack outputs.
-3. **Build and upload**:
-
-   ```bash
-   npm run build
-   aws s3 sync dist/ s3://SITE_BUCKET_NAME --delete
-   aws cloudfront create-invalidation --distribution-id DISTRIBUTION_ID --paths "/*"
-   ```
-
-4. **DNS**: Create a **CNAME** (or Route 53 alias) for `pushuppros.com` → CloudFront domain name. For HTTPS on a custom domain, add an **ACM certificate in us-east-1** and attach it to the distribution (future CDK iteration or console).
+Stacks: **`PushupProsMarketingDev`** (dev.pushuppros.com), **`PushupProsMarketingProd`** (pushuppros.com). Build before deploy: `npm run build`.
 
 ## Routes
 

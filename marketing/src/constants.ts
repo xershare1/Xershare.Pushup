@@ -4,4 +4,4 @@
  */
 export const CHALLENGE_APP_URL =
   import.meta.env.VITE_CHALLENGE_APP_URL?.trim() ||
-  'https://xershare.com/pushup'
+  'https://app.pushuppros.com'

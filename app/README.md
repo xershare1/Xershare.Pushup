@@ -1,6 +1,6 @@
 # PushupPros app (product)
 
-Standalone **Vite + React** client for the PushupPros **challenge flow** ([Linear XER-7](https://linear.app/xershare/issue/XER-7/create-react-pwa-app-for-pushuppros-core-challenge-experience)). This is separate from the marketing site in [`../pushuppros-marketing/`](../pushuppros-marketing/).
+Standalone **Vite + React** client for the PushupPros **challenge flow** ([Linear XER-7](https://linear.app/xershare/issue/XER-7/create-react-pwa-app-for-pushuppros-core-challenge-experience)). This is separate from the marketing site in [`../marketing/`](../marketing/).
 
 **MVP loop:** Create → Share → Respond → Result.
 
