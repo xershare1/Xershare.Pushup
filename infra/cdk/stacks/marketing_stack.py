@@ -46,7 +46,7 @@ class MarketingStack(Stack):
         cert_arn = _context_or_placeholder(
             self,
             "certificateArn",
-            _PLACEHOLDER_CERT_ARN,
+            "arn:aws:acm:us-east-1:794038211234:certificate/14942282-e28c-4fb6-a93a-d327b45399eb",
             "Deploy PushupProsAcm in us-east-1 first.",
         )
         cert = acm.Certificate.from_certificate_arn(

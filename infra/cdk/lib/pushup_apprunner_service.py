@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Optional
+
 from aws_cdk import Annotations, CfnOutput, Stack, aws_apprunner as apprunner
 from constructs import Construct
 
@@ -21,7 +23,9 @@ def _context_or_placeholder(scope: Construct, key: str, placeholder: str) -> str
 
 
 class PushupApprunnerService(Construct):
-    """App Runner service from GitHub using repo-root ``apprunner.yaml`` (``configuration_source=REPOSITORY``)."""
+    """App Runner service from GitHub using repo-root ``apprunner.yaml`` (``configuration_source=REPOSITORY``).
+    When ``existing_service_arn`` and ``existing_service_url`` are provided, the construct references the
+    existing service instead of creating a new one."""
 
     def __init__(
         self,
@@ -30,8 +34,20 @@ class PushupApprunnerService(Construct):
         *,
         service_name: str,
         branch: str,
+        existing_service_arn: Optional[str] = None,
+        existing_service_url: Optional[str] = None,
     ) -> None:
         super().__init__(scope, construct_id)
+
+        if existing_service_arn and existing_service_url:
+            # Reference existing service — do not create
+            CfnOutput(
+                self,
+                "ServiceUrl",
+                value=existing_service_url,
+                description=f"App Runner URL for existing {service_name}",
+            )
+            return
 
         connection_arn = _context_or_placeholder(
             self, "githubConnectionArn", _PLACEHOLDER_CONNECTION_ARN
