@@ -1,0 +1,41 @@
+/* Pushup guide pages (marketing) */
+.guide-page .prose {
+  font-size: 1rem;
+  color: var(--text);
+}
+
+.guide-page .prose p {
+  margin: 0 0 1rem;
+}
+
+.prose-heading {
+  margin: 1.5rem 0 0.5rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.prose-heading:first-child {
+  margin-top: 0;
+}
+
+.prose-list {
+  margin: 0 0 1rem;
+  padding-left: 1.25rem;
+}
+
+.prose-list li {
+  margin-bottom: 0.65rem;
+}
+
+.prose-note {
+  margin-top: 1rem;
+  font-size: 0.95rem;
+  color: var(--muted);
+}
+
+.guide-cta {
+  margin-top: 2.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}

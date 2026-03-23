@@ -1,0 +1,20 @@
+# Repository mode: App Runner uses the managed Python 3.11 platform (revised build).
+# develop: keep ENV dev. production branch: set ENV to prod (see README).
+# When App Runner source directory is set to `backend`, this file is used.
+# https://docs.aws.amazon.com/apprunner/latest/dg/service-source-code-python.html
+version: 1.0
+runtime: python311
+build:
+  commands:
+    build:
+      - echo "build phase"
+run:
+  runtime-version: "3.11"
+  pre-run:
+    - pip3 install --no-cache-dir -r requirements.txt
+  command: python3 -m app.main
+  network:
+    port: 8000
+  env:
+    - name: ENV
+      value: dev

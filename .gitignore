@@ -8,12 +8,18 @@ __pycache__/
 
 # CDK
 infra/cdk.out/
-infra/.cdk.staging/
-infra/cdk.context.json
+infra/cdk/cdk.out/
+infra/cdk/.cdk.staging/
+infra/cdk/cdk.context.json
 
-# Frontend (XER-6)
-pushuppros-marketing/node_modules/
-pushuppros-marketing/dist/
+# Frontend
+marketing/node_modules/
+marketing/dist/
+app/node_modules/
+app/dist/
+
+# Backend
+backend/__pycache__/
 
 # OS / IDE
 .DS_Store
