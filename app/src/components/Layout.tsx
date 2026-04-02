@@ -15,7 +15,7 @@ export function Layout({ children }: LayoutProps) {
           </Link>
           <nav className="nav nav--inline" aria-label="Primary">
             <NavLink
-              to="/challenge/create"
+              to="/challenge/start"
               className={({ isActive }) =>
                 `nav-link ${isActive ? 'nav-link-active' : ''}`
               }

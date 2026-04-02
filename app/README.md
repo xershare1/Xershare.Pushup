@@ -26,11 +26,18 @@ Copy [`.env.example`](.env.example) to `.env.development` or configure variables
 
 Default local dev (`.env.development`) enables the mock so you can build the UI without backend challenge routes.
 
+## Pose overlay (challenge video)
+
+The challenge start screen runs **MoveNet** (TensorFlow.js `@tensorflow-models/pose-detection`, Thunder model) in `getUserMedia` on the WebGL backend and draws a skeleton on a canvas over the video—same stack as `xershare.web` (`usePreJoinRoom`, `UploadVideo`). BlazePose is not used.
+
+Vite aliases `@mediapipe/pose` to a small shim because the published package is UMD-only and breaks ESM bundling; only MoveNet is needed at runtime.
+
 ## Routes
 
 | Path | Page |
 |------|------|
 | `/` | Home / entry |
+| `/challenge/start` | Record or upload challenge video (local only; camera needs HTTPS or localhost) |
 | `/challenge/create` | Create challenge |
 | `/c/:challengeId` | Challenge detail (share target) |
 | `/c/:challengeId/submit` | Submit reps |

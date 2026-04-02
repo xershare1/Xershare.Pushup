@@ -1,0 +1,102 @@
+/* Wider content so video + analysis fit side by side */
+.pushup-algo-lab.stack.pushup-session-page {
+  max-width: min(100%, 72rem);
+}
+
+.pushup-algo-lab-video-analysis-row {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 1rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.pushup-algo-lab-video-col {
+  flex: 1 1 55%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.pushup-algo-lab-panel {
+  flex: 1 1 16rem;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.pushup-algo-lab-video-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 8rem;
+  border-radius: 10px;
+  border: 1px dashed var(--border);
+  background: rgba(0, 0, 0, 0.15);
+  font-size: 0.95rem;
+  text-align: center;
+  padding: 1rem;
+}
+
+.pushup-algo-lab-upload .pushup-algo-lab-video-wrap {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+  max-height: min(60vh, 28rem);
+}
+
+.pushup-algo-lab-video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.pushup-algo-lab-panel-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.pushup-algo-lab-reps {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.pushup-algo-lab-dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: minmax(10rem, 40%) 1fr;
+  gap: 0.35rem 1rem;
+  font-size: 0.95rem;
+}
+
+.pushup-algo-lab-dl dt {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.pushup-algo-lab-dl dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 52rem) {
+  .pushup-algo-lab-video-analysis-row {
+    flex-direction: column;
+  }
+
+  .pushup-algo-lab-panel {
+    flex-basis: auto;
+  }
+}

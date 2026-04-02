@@ -10,13 +10,18 @@ export function Home() {
           Built for a fast, phone-first flow.
         </p>
         <div className="hero-actions">
-          <Link className="btn btn-primary" to="/challenge/create">
+          <Link className="btn btn-primary" to="/challenge/start">
             Start a challenge
           </Link>
           <Link className="btn btn-secondary" to="/leaderboard">
             Leaderboard
           </Link>
         </div>
+        {import.meta.env.DEV ? (
+          <p className="hero-sub" style={{ marginTop: '1.5rem', fontSize: '0.9rem' }}>
+            <Link to="/dev/pushup-lab">Pushup algorithm lab</Link> (dev)
+          </p>
+        ) : null}
       </div>
     </section>
   )
