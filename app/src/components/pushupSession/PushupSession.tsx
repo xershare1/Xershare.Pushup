@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { playCountdownBeep } from '../../lib/audio/sessionAudio'
 import { PushupService } from '../../lib/pose/pushupService'
@@ -40,8 +40,10 @@ export function PushupSession({ onBack }: Props) {
   const streamRef = useRef<MediaStream | null>(null)
 
   const [sessionState, setSessionState] = useState<PushupSessionState>('INITIALIZING')
-  const sessionStateRef = useRef(sessionState)
-  sessionStateRef.current = sessionState
+  const sessionStateRef = useRef<PushupSessionState>(sessionState)
+  useLayoutEffect(() => {
+    sessionStateRef.current = sessionState
+  }, [sessionState])
 
   const [cameraReady, setCameraReady] = useState(false)
   const [cameraError, setCameraError] = useState<string | null>(null)
@@ -54,6 +56,8 @@ export function PushupSession({ onBack }: Props) {
   const [remainingSec, setRemainingSec] = useState(60)
   const [motion01, setMotion01] = useState(0.5)
   const [sessionRecording, setSessionRecording] = useState<Blob | null>(null)
+  /** Unique per completed set — used so solo sync effect runs once per result (StrictMode-safe). */
+  const [soloSyncKey, setSoloSyncKey] = useState<string | null>(null)
 
   const pushupServiceRef = useRef(new PushupService())
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
@@ -134,7 +138,13 @@ export function PushupSession({ onBack }: Props) {
     setPushupPos(false)
     setPushupHint(null)
     setSessionRecording(null)
+    setSoloSyncKey(null)
     setSessionState('READINESS_CHECK')
+  }, [])
+
+  const finishSession = useCallback(() => {
+    setSoloSyncKey(crypto.randomUUID())
+    setSessionState('RESULTS')
   }, [])
 
   useEffect(() => {
@@ -291,7 +301,7 @@ export function PushupSession({ onBack }: Props) {
   useEffect(() => {
     if (sessionState !== 'COUNTDOWN') return
     let cancelled = false
-    setCountdownValue(3)
+    // countdownValue is already 3 from the READINESS_CHECK → COUNTDOWN transition (see onPoseFrame)
     playCountdownBeep()
     let step = 0
     const id = window.setInterval(() => {
@@ -322,15 +332,15 @@ export function PushupSession({ onBack }: Props) {
       setRemainingSec(left)
       if (left <= 0) {
         window.clearInterval(id)
-        setSessionState('RESULTS')
+        finishSession()
       }
     }, 250)
     return () => window.clearInterval(id)
-  }, [sessionState])
+  }, [sessionState, finishSession])
 
   const handleStop = useCallback(() => {
-    setSessionState('RESULTS')
-  }, [])
+    finishSession()
+  }, [finishSession])
 
   const showSessionChrome = sessionState !== 'RESULTS'
 
@@ -364,6 +374,7 @@ export function PushupSession({ onBack }: Props) {
           onTryAgain={handleTryAgain}
           onBack={onBack}
           sessionRecording={sessionRecording}
+          soloSyncKey={soloSyncKey}
         />
       ) : null}
 

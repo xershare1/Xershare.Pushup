@@ -1,8 +1,16 @@
-import { useEffect, useMemo, useState, type FC } from 'react'
+import { useAuth } from '@clerk/react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, startTransition, type FC } from 'react'
 import type { CountUpProps } from 'react-countup'
 import CountUpImport from 'react-countup'
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
+
+import { createSoloSession } from '../../api/solo'
+import { formatError } from '../../lib/formatError'
+import { getWorkoutFeedback } from '../../lib/workoutFeedback'
+
+/** Dedupe solo POST in React 18 StrictMode (effects run twice with the same key). */
+const soloSyncSubmittedKeys = new Set<string>()
 
 /** CJS/ESM interop: Vite may give the component or a module object with `.default`. */
 const CountUp: FC<CountUpProps> =
@@ -10,38 +18,85 @@ const CountUp: FC<CountUpProps> =
     ? CountUpImport
     : (CountUpImport as unknown as { default: FC<CountUpProps> }).default
 
-export function getWorkoutFeedback(reps: number): string {
-  if (reps <= 0) return "Every rep counts — you've got this."
-  if (reps < 15) return 'Nice work.'
-  if (reps < 30) return 'Strong set.'
-  return 'Outstanding work.'
-}
-
 type Props = {
   reps: number
   onTryAgain: () => void
   onBack: () => void
   /** Camera recording for this set (e.g. WebM); shown as download for algorithm lab testing */
   sessionRecording: Blob | null
+  /** Set when a set completes — triggers one solo API sync per key */
+  soloSyncKey: string | null
 }
 
-export function SessionResults({ reps, onTryAgain, onBack, sessionRecording }: Props) {
+export function SessionResults({
+  reps,
+  onTryAgain,
+  onBack,
+  sessionRecording,
+  soloSyncKey,
+}: Props) {
+  const { getToken } = useAuth()
   const feedback = getWorkoutFeedback(reps)
 
   const [recordingUrl, setRecordingUrl] = useState<string | null>(null)
+  const [soloStatus, setSoloStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [soloError, setSoloError] = useState<string | null>(null)
+  const [serverVideoUrl, setServerVideoUrl] = useState<string | null>(null)
+
+  const recordingRef = useRef<Blob | null>(sessionRecording)
+  useLayoutEffect(() => {
+    recordingRef.current = sessionRecording
+  }, [sessionRecording])
+
   const downloadFilename = useMemo(() => {
     if (!sessionRecording) return 'pushup-session.webm'
     const ext = sessionRecording.type.includes('mp4') ? 'mp4' : 'webm'
-    return `pushup-session-${Date.now()}.${ext}`
-  }, [sessionRecording])
+    const id = soloSyncKey ?? 'session'
+    return `pushup-session-${id}.${ext}`
+  }, [sessionRecording, soloSyncKey])
+
+  useEffect(() => {
+    if (!soloSyncKey) return
+    if (soloSyncSubmittedKeys.has(soloSyncKey)) return
+    soloSyncSubmittedKeys.add(soloSyncKey)
+
+    let cancelled = false
+    startTransition(() => {
+      setSoloStatus('saving')
+      setSoloError(null)
+      setServerVideoUrl(null)
+    })
+
+    const id = window.setTimeout(async () => {
+      try {
+        const result = await createSoloSession(getToken, {
+          reps,
+          video: recordingRef.current,
+        })
+        if (cancelled) return
+        setSoloStatus('saved')
+        setServerVideoUrl(result.videoUrl)
+      } catch (e) {
+        if (cancelled) return
+        setSoloStatus('error')
+        setSoloError(formatError(e))
+      }
+    }, 1000)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(id)
+      soloSyncSubmittedKeys.delete(soloSyncKey)
+    }
+  }, [soloSyncKey, reps, getToken])
 
   useEffect(() => {
     if (!sessionRecording) {
-      setRecordingUrl(null)
+      startTransition(() => setRecordingUrl(null))
       return
     }
     const u = URL.createObjectURL(sessionRecording)
-    setRecordingUrl(u)
+    startTransition(() => setRecordingUrl(u))
     return () => {
       URL.revokeObjectURL(u)
     }
@@ -69,6 +124,22 @@ export function SessionResults({ reps, onTryAgain, onBack, sessionRecording }: P
         <p className="pushup-results-feedback">{feedback}</p>
       </div>
 
+      {soloStatus === 'saving' ? (
+        <p className="banner banner-warn" role="status" style={{ marginTop: '0.75rem' }}>
+          Saving your session…
+        </p>
+      ) : null}
+      {soloStatus === 'saved' ? (
+        <p className="banner banner-success" role="status" style={{ marginTop: '0.75rem' }}>
+          Session saved to your account.
+        </p>
+      ) : null}
+      {soloStatus === 'error' && soloError ? (
+        <p className="banner banner-error" role="alert" style={{ marginTop: '0.75rem' }}>
+          Could not save session: {soloError}
+        </p>
+      ) : null}
+
       <div className="pushup-results-actions">
         <button type="button" className="btn btn-primary pushup-results-cta-primary" onClick={onTryAgain}>
           Try Again
@@ -76,6 +147,16 @@ export function SessionResults({ reps, onTryAgain, onBack, sessionRecording }: P
         <Link to="/challenge/create" className="btn btn-secondary pushup-results-cta-secondary">
           Save your score
         </Link>
+        {serverVideoUrl ? (
+          <a
+            href={serverVideoUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn btn-secondary pushup-results-cta-secondary"
+          >
+            Open cloud video
+          </a>
+        ) : null}
         {recordingUrl ? (
           <a
             href={recordingUrl}
