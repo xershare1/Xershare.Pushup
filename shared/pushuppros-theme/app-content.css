@@ -194,6 +194,49 @@
   pointer-events: none;
 }
 
+/* Credit bundles (Stripe Checkout entry) */
+.stack.purchase-page {
+  max-width: min(100%, 56rem);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.purchase-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+.purchase-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  align-items: stretch;
+}
+
+.purchase-badge {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.purchase-card-title {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.purchase-card-meta {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
 @media (max-width: 540px) {
   .facts {
     grid-template-columns: 1fr;

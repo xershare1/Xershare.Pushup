@@ -25,7 +25,7 @@ class CreateCheckoutResponse(BaseModel):
     url: str
 
 
-@router.post("/create-checkout-session", response_model=CreateCheckoutResponse)
+@router.post("create-checkout-session", response_model=CreateCheckoutResponse)
 def create_checkout_session(
     body: CreateCheckoutBody,
     clerk_user_id: str = Depends(require_clerk_user_id),

@@ -31,6 +31,16 @@ export function Layout({ children }: LayoutProps) {
             >
               Leaderboard
             </NavLink>
+            <Show when="signed-in">
+              <NavLink
+                to="/purchase"
+                className={({ isActive }) =>
+                  `nav-link ${isActive ? 'nav-link-active' : ''}`
+                }
+              >
+                Credits
+              </NavLink>
+            </Show>
           </nav>
           <div className="header-auth" aria-label="Account">
             <Show when="signed-out">

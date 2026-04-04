@@ -1,3 +1,4 @@
+import { Show } from '@clerk/react'
 import { Link } from 'react-router-dom'
 
 export function Home() {
@@ -10,9 +11,19 @@ export function Home() {
           Built for a fast, phone-first flow.
         </p>
         <div className="hero-actions">
-          <Link className="btn btn-primary" to="/challenge/start">
-            Start a challenge
-          </Link>
+          <Show when="signed-in">
+            <Link className="btn btn-primary" to="/purchase">
+              Get credits
+            </Link>
+            <Link className="btn btn-secondary" to="/challenge/start">
+              Start a challenge
+            </Link>
+          </Show>
+          <Show when="signed-out">
+            <Link className="btn btn-primary" to="/challenge/start">
+              Start a challenge
+            </Link>
+          </Show>
           <Link className="btn btn-secondary" to="/leaderboard">
             Leaderboard
           </Link>

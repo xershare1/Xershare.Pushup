@@ -8,13 +8,30 @@ import { SubmitResult } from '../pages/SubmitResult'
 import { ChallengeResult } from '../pages/ChallengeResult'
 import { Leaderboard } from '../pages/Leaderboard'
 import { PushupAlgorithmLab } from '../pages/PushupAlgorithmLab'
+import { PurchaseCredits } from '../pages/PurchaseCredits'
+import { PurchaseSuccess } from '../pages/PurchaseSuccess'
+import { PurchaseCancel } from '../pages/PurchaseCancel'
 
 export function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<Home />} />
-      <Route path="/challenge/start" element={<ChallengeStart />} />
-      <Route path="/challenge/create" element={<CreateChallenge />} />
+      <Route
+        path="/challenge/start"
+        element={
+          <RequireSessionAuth>
+            <ChallengeStart />
+          </RequireSessionAuth>
+        }
+      />
+      <Route
+        path="/challenge/create"
+        element={
+          <RequireSessionAuth>
+            <CreateChallenge />
+          </RequireSessionAuth>
+        }
+      />
       <Route path="/c/:challengeId" element={<ChallengeDetail />} />
       <Route
         path="/c/:challengeId/submit"
@@ -33,6 +50,16 @@ export function AppRoutes() {
         }
       />
       <Route path="/leaderboard" element={<Leaderboard />} />
+      <Route path="/purchase/success" element={<PurchaseSuccess />} />
+      <Route path="/purchase/cancel" element={<PurchaseCancel />} />
+      <Route
+        path="/purchase"
+        element={
+          <RequireSessionAuth>
+            <PurchaseCredits />
+          </RequireSessionAuth>
+        }
+      />
       {import.meta.env.DEV ? (
         <Route
           path="/dev/pushup-lab"

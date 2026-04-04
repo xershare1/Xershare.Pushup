@@ -21,6 +21,39 @@ def get_frontend_url() -> str:
 
 
 @lru_cache
+def get_cors_allow_origins() -> tuple[str, ...]:
+    """
+    Origins allowed by CORSMiddleware. Includes localhost ↔ 127.0.0.1 swap for
+    local dev: the browser treats them as different origins, but Vite is often
+    opened as either hostname.
+    """
+    from urllib.parse import urlparse
+
+    base = get_frontend_url()
+    out: list[str] = [base]
+    try:
+        u = urlparse(base)
+        host = (u.hostname or "").lower()
+        if host == "localhost":
+            alt = base.replace("://localhost", "://127.0.0.1", 1)
+            if alt not in out:
+                out.append(alt)
+        elif host == "127.0.0.1":
+            alt = base.replace("://127.0.0.1", "://localhost", 1)
+            if alt not in out:
+                out.append(alt)
+    except Exception:
+        pass
+    extra = _env("CORS_EXTRA_ORIGINS")
+    if extra:
+        for part in extra.split(","):
+            p = part.strip().rstrip("/")
+            if p and p not in out:
+                out.append(p)
+    return tuple(out)
+
+
+@lru_cache
 def get_stripe_webhook_secret() -> str:
     s = _env("STRIPE_WEBHOOK_SECRET")
     if not s:
