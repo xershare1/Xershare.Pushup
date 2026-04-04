@@ -2,6 +2,7 @@ import type {
   Challenge,
   ChallengeOutcome,
   CreateChallengeBody,
+  CreateChallengeResponse,
   LeaderboardEntry,
   SubmitAttemptBody,
 } from '../../types/challenge'
@@ -9,8 +10,8 @@ import { jsonFetch } from '../client'
 
 export async function createChallenge(
   body: CreateChallengeBody,
-): Promise<Challenge> {
-  return jsonFetch<Challenge>('/challenges', {
+): Promise<CreateChallengeResponse> {
+  return jsonFetch<CreateChallengeResponse>('/challenges', {
     method: 'POST',
     body: JSON.stringify(body),
   })

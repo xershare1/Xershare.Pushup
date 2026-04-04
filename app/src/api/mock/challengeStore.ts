@@ -1,4 +1,4 @@
-import type { Challenge, CreateChallengeBody } from '../../types/challenge'
+import type { Challenge, CreateChallengeBody, CreateChallengeResponse } from '../../types/challenge'
 
 const STORAGE_KEY = 'pushuppros_mock_challenges_v1'
 
@@ -23,7 +23,7 @@ function persist(): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify([...memory.values()]))
 }
 
-export function mockCreateChallenge(body: CreateChallengeBody): Challenge {
+export function mockCreateChallenge(body: CreateChallengeBody): CreateChallengeResponse {
   hydrate()
   const id = crypto.randomUUID()
   const challenge: Challenge = {
@@ -34,9 +34,18 @@ export function mockCreateChallenge(body: CreateChallengeBody): Challenge {
     challengerPushups: null,
     opponentPushups: null,
   }
+  if (body.challengerEmail?.trim()) challenge.challengerEmail = body.challengerEmail.trim()
+  if (body.opponentEmail?.trim()) challenge.opponentEmail = body.opponentEmail.trim()
+  if (body.challengerClerkUserId?.trim())
+    challenge.challengerClerkUserId = body.challengerClerkUserId.trim()
+  if (body.opponentClerkUserId?.trim())
+    challenge.opponentClerkUserId = body.opponentClerkUserId.trim()
   memory.set(id, challenge)
   persist()
-  return challenge
+  const origin = typeof window !== 'undefined' ? window.location.origin : ''
+  const shareLink = `${origin}/c/${id}?source=invite`
+  const notificationSent = Boolean(body.opponentClerkUserId?.trim())
+  return { challenge, shareLink, notificationSent }
 }
 
 export function mockGetChallenge(id: string): Challenge | undefined {

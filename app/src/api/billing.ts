@@ -14,6 +14,7 @@ export async function createCheckoutSession(
   if (!token) {
     throw new Error('Sign in to purchase credits.')
   }
+  console.log('bundleCode', bundleCode)
   const data = await jsonFetch<{ url: string }>('/billing/create-checkout-session', {
     method: 'POST',
     body: JSON.stringify({ bundle_code: bundleCode }),

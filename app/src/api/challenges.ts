@@ -5,13 +5,14 @@ import type {
   Challenge,
   ChallengeOutcome,
   CreateChallengeBody,
+  CreateChallengeResponse,
   LeaderboardEntry,
   SubmitAttemptBody,
 } from '../types/challenge'
 
 export async function createChallenge(
   body: CreateChallengeBody,
-): Promise<Challenge> {
+): Promise<CreateChallengeResponse> {
   return isMockApiEnabled() ? mock.createChallenge(body) : real.createChallenge(body)
 }
 
@@ -40,6 +41,7 @@ export type {
   Challenge,
   ChallengeOutcome,
   CreateChallengeBody,
+  CreateChallengeResponse,
   LeaderboardEntry,
   SubmitAttemptBody,
 } from '../types/challenge'
