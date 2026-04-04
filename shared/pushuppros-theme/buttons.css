@@ -49,3 +49,12 @@
   color: var(--text);
   background: rgba(255, 255, 255, 0.05);
 }
+
+/* Compact header (Clerk sign-in / sign-up, small CTAs) */
+.btn--header {
+  padding: 0.5rem 0.85rem;
+  font-size: 0.875rem;
+  border-radius: 8px;
+  font-weight: 600;
+  border-width: 1px;
+}

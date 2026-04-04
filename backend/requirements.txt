@@ -1,2 +1,5 @@
 fastapi==0.115.8
 uvicorn[standard]==0.34.0
+stripe==11.6.0
+httpx==0.28.1
+PyJWT[crypto]==2.10.1

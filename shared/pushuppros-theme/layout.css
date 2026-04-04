@@ -30,6 +30,37 @@
   gap: 1rem;
 }
 
+.header-auth {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.header-auth-user {
+  display: flex;
+  align-items: center;
+}
+
+/* Clerk UserButton trigger: align with app chrome */
+.header-auth-user .cl-userButtonTrigger {
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 0.15rem;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.header-auth-user .cl-userButtonTrigger:hover {
+  border-color: var(--muted);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.header-auth-user .cl-userButtonBox {
+  width: 2rem;
+  height: 2rem;
+}
+
 .logo {
   font-weight: 800;
   font-size: 1.15rem;

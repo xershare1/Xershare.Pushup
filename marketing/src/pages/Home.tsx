@@ -12,7 +12,7 @@ export function Home() {
         <div className="hero-actions">
           <a
             className="btn btn-primary"
-            href={`${CHALLENGE_APP_URL}/challenge/create`}
+            href={`${CHALLENGE_APP_URL}/challenge/start`}
             target="_blank"
             rel="noopener noreferrer"
           >

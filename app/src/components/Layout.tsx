@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { Show, SignInButton, SignUpButton, UserButton } from '@clerk/react'
 import { Link, NavLink } from 'react-router-dom'
 
 type LayoutProps = {
@@ -15,7 +16,7 @@ export function Layout({ children }: LayoutProps) {
           </Link>
           <nav className="nav nav--inline" aria-label="Primary">
             <NavLink
-              to="/challenge/create"
+              to="/challenge/start"
               className={({ isActive }) =>
                 `nav-link ${isActive ? 'nav-link-active' : ''}`
               }
@@ -31,6 +32,33 @@ export function Layout({ children }: LayoutProps) {
               Leaderboard
             </NavLink>
           </nav>
+          <div className="header-auth" aria-label="Account">
+            <Show when="signed-out">
+              <>
+                <SignInButton mode="modal">
+                  <button type="button" className="btn btn-ghost btn--header">
+                    Sign in
+                  </button>
+                </SignInButton>
+                <SignUpButton mode="modal">
+                  <button type="button" className="btn btn-primary btn--header">
+                    Sign up
+                  </button>
+                </SignUpButton>
+              </>
+            </Show>
+            <Show when="signed-in">
+              <div className="header-auth-user">
+                <UserButton
+                  appearance={{
+                    elements: {
+                      userButtonAvatarBox: 'header-user-avatar',
+                    },
+                  }}
+                />
+              </div>
+            </Show>
+          </div>
         </div>
       </header>
       <main className="main">{children}</main>

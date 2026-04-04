@@ -1,0 +1,185 @@
+/* Wider content so video + analysis fit side by side */
+.pushup-algo-lab.stack.pushup-session-page {
+  max-width: min(100%, 72rem);
+}
+
+.pushup-algo-lab-video-analysis-row {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 1rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.pushup-algo-lab-video-col {
+  flex: 1 1 55%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.pushup-algo-lab-video-gauge-row {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0.5rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.pushup-algo-lab-panel {
+  flex: 1 1 16rem;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.pushup-algo-lab-video-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 8rem;
+  border-radius: 10px;
+  border: 1px dashed var(--border);
+  background: rgba(0, 0, 0, 0.15);
+  font-size: 0.95rem;
+  text-align: center;
+  padding: 1rem;
+}
+
+.pushup-algo-lab-upload .pushup-algo-lab-video-gauge-row .pushup-algo-lab-video-wrap {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.pushup-algo-lab-upload .pushup-algo-lab-video-wrap {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+  max-height: min(60vh, 28rem);
+}
+
+.pushup-algo-lab-video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.pushup-algo-lab-panel-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.pushup-algo-lab-reps {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.pushup-algo-lab-dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: minmax(10rem, 40%) 1fr;
+  gap: 0.35rem 1rem;
+  font-size: 0.95rem;
+}
+
+.pushup-algo-lab-dl dt {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.pushup-algo-lab-dl dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Lab-only elbow angle gauge (up-band guides at 150° / 180°) */
+.pushup-lab-angle-gauge {
+  flex: 0 0 4.75rem;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  align-self: stretch;
+  gap: 0.25rem;
+  min-height: 0;
+}
+
+.pushup-lab-angle-gauge-track {
+  position: relative;
+  flex: 1 1 auto;
+  align-self: stretch;
+  min-height: 0;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.pushup-lab-angle-gauge-guide {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 1px solid rgba(120, 200, 255, 0.85);
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.pushup-lab-angle-gauge-guide-label {
+  position: absolute;
+  left: 100%;
+  top: 0;
+  margin-left: 4px;
+  transform: translateY(-50%);
+  font-size: 0.65rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.pushup-lab-angle-gauge-marker {
+  position: absolute;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  margin-left: -5px;
+  margin-top: -5px;
+  border-radius: 50%;
+  background: #f5a623;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.pushup-lab-angle-gauge-axis {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  flex: 0 0 auto;
+  padding: 2px 0;
+  font-size: 0.65rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  line-height: 1;
+}
+
+@media (max-width: 52rem) {
+  .pushup-algo-lab-video-analysis-row {
+    flex-direction: column;
+  }
+
+  .pushup-algo-lab-panel {
+    flex-basis: auto;
+  }
+}
