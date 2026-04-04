@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel
@@ -30,6 +31,8 @@ class ChallengeOut(BaseModel):
     opponentEmail: str | None = None
     challengerClerkUserId: str | None = None
     opponentClerkUserId: str | None = None
+    status: str | None = None
+    expiresAt: datetime | None = None
 
 
 class CreateChallengeResponse(BaseModel):

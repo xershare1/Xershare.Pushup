@@ -1,36 +1,24 @@
-# PushupPros API (FastAPI)
+# Pushup API (FastAPI)
 
-Backend for PushupPros. App Runner uses `backend/` as the source directory (configure in console or pipeline).
+## Database (Postgres)
 
-## Environment
-
-1. Copy [`.env.example`](.env.example) to `.env` in this directory.
-2. Set **Clerk** (`CLERK_JWKS_URL`, `CLERK_JWT_ISSUER` from the Clerk Dashboard → **Configure** → **API keys**; JWKS URL is listed there).
-3. Set **Stripe** keys and **Price** IDs for each bundle.
-4. Set **`FRONTEND_URL`** to your app origin (e.g. `http://localhost:5174`).
-
-On startup, `app/main.py` loads `.env` via `python-dotenv`. In production, configure the same variables on the host (App Runner, etc.); do not commit `.env`.
-
-## Run locally
-
-From repo root:
+1. Set `DATABASE_URL` (e.g. `postgresql+psycopg://postgres:postgres@localhost:5432/pushup` from Docker Compose).
+2. Run migrations from this directory:
 
 ```powershell
-pip install -r backend/requirements.txt
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --app-dir backend
+alembic upgrade head
 ```
 
-Or from this directory:
+If `DATABASE_URL` is **unset**, challenges use the **in-memory** store (no billing/credit persistence).
 
-```powershell
-cd backend
-pip install -r requirements.txt
-python -m app.main
-```
+## Local Postgres + pgAdmin
 
-## Docker (optional)
+Use `docker-compose.yml` in this folder: `docker compose up -d`, then set `DATABASE_URL` to match `POSTGRES_*` and run `alembic upgrade head`.
 
-```powershell
-docker build -t pushup-api backend/
-docker run -rm -p 8000:8000 pushup-api
-```
+## Solo sessions
+
+`POST /solo/session` accepts multipart form fields `reps` (required) and `video` (optional). Requires a Clerk session JWT (`Authorization: Bearer`) and `DATABASE_URL`. Each row stores reps, timestamps, and optional S3 object key `solo/{user_id}/{session_id}.mp4`. Rows expire after `VIDEO_TTL_HOURS` (default 24); a background task runs hourly to delete expired database rows and matching S3 objects. Set `AWS_S3_BUCKET` (and `AWS_REGION` if not `us-east-1`) to enable video uploads; reps-only sessions work without S3.
+
+## Env
+
+See `.env.example` for `DATABASE_URL`, `CHALLENGE_RATE_LIMIT_DAILY`, Clerk, Stripe, Resend, and solo/S3 variables.

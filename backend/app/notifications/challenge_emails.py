@@ -5,15 +5,16 @@ from __future__ import annotations
 from typing import Literal
 
 from app.challenges.logic import lifecycle, outcome_from
-from app.challenges.repository import repo
+from app.challenges.repo_access import challenge_repo_context
 from app.clerk.backend_client import (
     challenge_notifications_enabled,
     fetch_clerk_user,
     primary_email,
 )
-from app.config import get_frontend_url
+from app.config import get_database_url, get_frontend_url, is_email_enabled
 from app.email.resend_service import send_html_email
 from app.notifications import html_templates as T
+from app.notifications.notification_log import log_email_notification
 from app.notifications.suppression import is_suppressed
 
 
@@ -40,7 +41,8 @@ def _recipient_email_for_clerk_user(user_id: str | None) -> str | None:
 
 
 def notify_challenge_created(challenge_id: str) -> None:
-    rec = repo.get(challenge_id)
+    with challenge_repo_context() as repo:
+        rec = repo.get(challenge_id)
     if not rec or not rec.opponent_clerk_user_id:
         return
     email = _recipient_email_for_clerk_user(rec.opponent_clerk_user_id)
@@ -52,18 +54,25 @@ def notify_challenge_created(challenge_id: str) -> None:
         challenge_url=_challenge_url(challenge_id),
         message=rec.message,
     )
-    send_html_email(
-        to=[email],
-        subject="You have been challenged on Pushup Pros",
-        html=html,
-    )
+    subject = "You have been challenged on Pushup Pros"
+    mid = send_html_email(to=[email], subject=subject, html=html)
+    if get_database_url() and is_email_enabled():
+        log_email_notification(
+            type_="challenge_created",
+            recipient_email=email,
+            subject=subject,
+            challenge_id=challenge_id,
+            provider_message_id=mid,
+            error=None if mid else "no provider id",
+        )
 
 
 def notify_attempt_submitted(
     challenge_id: str,
     submitter_role: Literal["challenger", "opponent"],
 ) -> None:
-    rec = repo.get(challenge_id)
+    with challenge_repo_context() as repo:
+        rec = repo.get(challenge_id)
     if not rec:
         return
     if submitter_role == "challenger":
@@ -87,15 +96,22 @@ def notify_attempt_submitted(
         challenge_url=_challenge_url(challenge_id),
         role_label=role_label,
     )
-    send_html_email(
-        to=[email],
-        subject=f"{actor} logged push-ups on Pushup Pros",
-        html=html,
-    )
+    subject = f"{actor} logged push-ups on Pushup Pros"
+    mid = send_html_email(to=[email], subject=subject, html=html)
+    if get_database_url() and is_email_enabled():
+        log_email_notification(
+            type_="attempt_submitted",
+            recipient_email=email,
+            subject=subject,
+            challenge_id=challenge_id,
+            provider_message_id=mid,
+            error=None if mid else "no provider id",
+        )
 
 
 def notify_result_ready(challenge_id: str) -> None:
-    rec = repo.get(challenge_id)
+    with challenge_repo_context() as repo:
+        rec = repo.get(challenge_id)
     if not rec or lifecycle(rec) != "complete":
         return
     a, b, winner = outcome_from(rec)
@@ -121,8 +137,14 @@ def notify_result_ready(challenge_id: str) -> None:
             recipients.append(em)
     if not recipients:
         return
-    send_html_email(
-        to=recipients,
-        subject="Challenge result — Pushup Pros",
-        html=html,
-    )
+    subject = "Challenge result — Pushup Pros"
+    mid = send_html_email(to=recipients, subject=subject, html=html)
+    if get_database_url() and is_email_enabled():
+        log_email_notification(
+            type_="result_ready",
+            recipient_email=",".join(recipients),
+            subject=subject,
+            challenge_id=challenge_id,
+            provider_message_id=mid,
+            error=None if mid else "no provider id",
+        )

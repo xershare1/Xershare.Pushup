@@ -5,6 +5,8 @@ from aws_cdk import App, Environment
 
 from stacks.acm_stack import AcmStack
 from stacks.app_stack import AppStack
+from stacks.database_dev_stack import DatabaseDevStack
+from stacks.database_prod_stack import DatabaseProdStack
 from stacks.dev_stack import DevStack
 from stacks.marketing_stack import MarketingStack
 from stacks.prod_stack import ProdStack
@@ -51,5 +53,8 @@ AppStack(
 
 DevStack(app, "PushupApiDev", env=env_us_east_2)
 ProdStack(app, "PushupApiProd", env=env_us_east_2)
+
+DatabaseDevStack(app, "PushupDatabaseDev", env=env_us_east_2)
+DatabaseProdStack(app, "PushupDatabaseProd", env=env_us_east_2)
 
 app.synth()
