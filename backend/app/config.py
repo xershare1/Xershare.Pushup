@@ -15,7 +15,7 @@ def _env(name: str, default: str | None = None) -> str | None:
 
 @lru_cache
 def get_frontend_url() -> str:
-    url = _env("FRONTEND_URL", "http://localhost:5173")
+    url = _env("FRONTEND_URL", "http://localhost:5174")
     assert url is not None
     return url.rstrip("/")
 
@@ -82,6 +82,25 @@ def get_clerk_jwt_issuer() -> str:
             "CLERK_JWT_ISSUER is not set (JWT issuer URL from Clerk, must match session token `iss`)"
         )
     return s
+
+
+def get_clerk_secret_key() -> str | None:
+    """Clerk Backend API (Bearer). Required for user lookup and public_metadata updates."""
+    return _env("CLERK_SECRET_KEY")
+
+
+def is_email_enabled() -> bool:
+    """When false, notification code logs and skips Resend (local dev without API key)."""
+    return _env("EMAIL_ENABLED", "true").lower() not in ("0", "false", "no")
+
+
+def get_resend_api_key() -> str | None:
+    return _env("RESEND_API_KEY")
+
+
+def get_email_from() -> str:
+    # Resend test sender works without a verified domain; swap in production.
+    return _env("EMAIL_FROM", "Pushup Pros <onboarding@resend.dev>")
 
 
 def build_bundles() -> dict[str, dict[str, str | int]]:

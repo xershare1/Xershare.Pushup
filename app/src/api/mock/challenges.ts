@@ -2,6 +2,7 @@ import type {
   Challenge,
   ChallengeOutcome,
   CreateChallengeBody,
+  CreateChallengeResponse,
   LeaderboardEntry,
   SubmitAttemptBody,
 } from '../../types/challenge'
@@ -33,7 +34,7 @@ function outcomeFrom(ch: Challenge): ChallengeOutcome {
 
 export async function createChallenge(
   body: CreateChallengeBody,
-): Promise<Challenge> {
+): Promise<CreateChallengeResponse> {
   if (!body.challengerName.trim() || !body.opponentName.trim()) {
     throw new HttpError(400, 'Challenger and opponent names are required.')
   }

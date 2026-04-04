@@ -1,11 +1,20 @@
 import logging
 import os
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+# Load backend/.env before any code reads os.environ (local dev; production sets env in the host)
+_backend_dir = Path(__file__).resolve().parent.parent
+load_dotenv(_backend_dir / ".env")
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.billing.router import router as billing_router
+from app.challenges.router import router as challenges_router
 from app.config import get_cors_allow_origins
+from app.users.router import router as users_router
 from app.webhooks.stripe import router as stripe_webhook_router
 
 logging.basicConfig(level=logging.INFO)
@@ -23,6 +32,8 @@ app.add_middleware(
 )
 
 app.include_router(billing_router, prefix="/billing", tags=["billing"])
+app.include_router(challenges_router)
+app.include_router(users_router)
 app.include_router(stripe_webhook_router)
 
 
