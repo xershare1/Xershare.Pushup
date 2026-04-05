@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.post("/webhooks/stripe")
+@router.post("/api/v1/stripe/webhook")
 async def stripe_webhook(request: Request) -> dict[str, bool]:
     payload = await request.body()
     sig = request.headers.get("stripe-signature")

@@ -14,11 +14,23 @@ _engine = None
 _SessionLocal: sessionmaker[Session] | None = None
 
 
+def normalize_postgresql_url_for_sqlalchemy(url: str) -> str:
+    """Plain postgresql:// makes SQLAlchemy use psycopg2; we ship psycopg (v3) only."""
+    if url.startswith("postgresql+psycopg://") or url.startswith("postgresql+psycopg2://"):
+        return url
+    if url.startswith("postgresql://"):
+        return "postgresql+psycopg://" + url.removeprefix("postgresql://")
+    if url.startswith("postgres://"):
+        return "postgresql+psycopg://" + url.removeprefix("postgres://")
+    return url
+
+
 def get_engine():
     global _engine
     url = get_database_url()
     if not url:
         raise RuntimeError("DATABASE_URL is not set")
+    url = normalize_postgresql_url_for_sqlalchemy(url)
     if _engine is None:
         _engine = create_engine(url, pool_pre_ping=True)
     return _engine

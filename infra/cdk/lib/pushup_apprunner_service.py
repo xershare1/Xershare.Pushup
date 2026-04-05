@@ -36,6 +36,7 @@ class PushupApprunnerService(Construct):
         branch: str,
         existing_service_arn: Optional[str] = None,
         existing_service_url: Optional[str] = None,
+        instance_role_arn: Optional[str] = None,
     ) -> None:
         super().__init__(scope, construct_id)
 
@@ -56,9 +57,7 @@ class PushupApprunnerService(Construct):
             self, "githubRepositoryUrl", _PLACEHOLDER_REPO_URL
         )
 
-        service = apprunner.CfnService(
-            self,
-            "Service",
+        service_props: dict = dict(
             service_name=service_name,
             source_configuration=apprunner.CfnService.SourceConfigurationProperty(
                 authentication_configuration=apprunner.CfnService.AuthenticationConfigurationProperty(
@@ -87,8 +86,11 @@ class PushupApprunnerService(Construct):
             instance_configuration=apprunner.CfnService.InstanceConfigurationProperty(
                 cpu="512",
                 memory="1024",
+                instance_role_arn=instance_role_arn,
             ),
         )
+
+        service = apprunner.CfnService(self, "Service", **service_props)
 
         CfnOutput(
             self,

@@ -9,3 +9,15 @@ class SoloSessionOut(BaseModel):
     sessionId: str
     reps: int
     videoUrl: str | None = None
+
+
+class SoloSessionListItem(BaseModel):
+    sessionId: str
+    reps: int
+    createdAt: str
+    expiresAt: str
+    videoUrl: str | None = None
+
+
+class SoloSessionListOut(BaseModel):
+    sessions: list[SoloSessionListItem]

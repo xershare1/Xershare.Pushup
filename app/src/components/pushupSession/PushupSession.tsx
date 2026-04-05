@@ -28,6 +28,8 @@ export type PushupSessionState =
 
 type Props = {
   onBack: () => void
+  /** Solo: copy and results label match /solo (personal log, not a challenge). */
+  variant?: 'solo' | 'default'
 }
 
 const STABLE_FRAMES = 14
@@ -35,7 +37,7 @@ const WARMUP_FRAMES = 6
 
 const PUSHUP_POSE_DEBUG = import.meta.env.DEV
 
-export function PushupSession({ onBack }: Props) {
+export function PushupSession({ onBack, variant = 'default' }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
 
@@ -349,10 +351,12 @@ export function PushupSession({ onBack }: Props) {
       {showSessionChrome ? (
         <>
           <h2 className="page-title" style={{ marginBottom: 0 }}>
-            Pushup session
+            {variant === 'solo' ? 'Solo session' : 'Pushup session'}
           </h2>
           <p className="lede" style={{ marginBottom: 0 }}>
-            Stay on this screen. Follow the prompts — your set runs up to 60 seconds.
+            {variant === 'solo'
+              ? 'Personal practice — your reps save to your account. Stay on screen; your set runs up to 60 seconds.'
+              : 'Stay on this screen. Follow the prompts — your set runs up to 60 seconds.'}
           </p>
         </>
       ) : null}
@@ -375,6 +379,7 @@ export function PushupSession({ onBack }: Props) {
           onBack={onBack}
           sessionRecording={sessionRecording}
           soloSyncKey={soloSyncKey}
+          variant={variant}
         />
       ) : null}
 

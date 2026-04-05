@@ -15,12 +15,18 @@ export function Home() {
             <Link className="btn btn-primary" to="/purchase">
               Get credits
             </Link>
+            <Link className="btn btn-secondary" to="/solo">
+              Solo session
+            </Link>
             <Link className="btn btn-secondary" to="/challenge/start">
               Start a challenge
             </Link>
           </Show>
           <Show when="signed-out">
-            <Link className="btn btn-primary" to="/challenge/start">
+            <Link className="btn btn-primary" to="/solo">
+              Solo session
+            </Link>
+            <Link className="btn btn-secondary" to="/challenge/start">
               Start a challenge
             </Link>
           </Show>

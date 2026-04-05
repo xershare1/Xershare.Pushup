@@ -19,6 +19,7 @@ from app.challenges.router import router as challenges_router
 from app.config import get_cors_allow_origins, get_database_url
 from app.solo.router import router as solo_router
 from app.users.router import router as users_router
+from app.webhooks.clerk import router as clerk_webhook_router
 from app.webhooks.stripe import router as stripe_webhook_router
 
 logging.basicConfig(level=logging.INFO)
@@ -67,6 +68,7 @@ app.include_router(billing_router, prefix="/billing", tags=["billing"])
 app.include_router(challenges_router)
 app.include_router(users_router)
 app.include_router(solo_router)
+app.include_router(clerk_webhook_router)
 app.include_router(stripe_webhook_router)
 
 

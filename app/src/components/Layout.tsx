@@ -1,14 +1,22 @@
 import type { ReactNode } from 'react'
 import { Show, SignInButton, SignUpButton, UserButton } from '@clerk/react'
-import { Link, NavLink } from 'react-router-dom'
+import { Link, NavLink, useLocation } from 'react-router-dom'
+
+import { HeaderCreditBalance } from './HeaderCreditBalance'
+import { UserSyncGate } from './UserSyncGate'
 
 type LayoutProps = {
   children: ReactNode
 }
 
 export function Layout({ children }: LayoutProps) {
+  const { pathname } = useLocation()
+  const challengeNavActive =
+    pathname.startsWith('/challenge/') || pathname.startsWith('/c/')
+
   return (
     <div className="layout">
+      <UserSyncGate />
       <header className="header">
         <div className="header-inner">
           <Link className="logo" to="/">
@@ -16,12 +24,31 @@ export function Layout({ children }: LayoutProps) {
           </Link>
           <nav className="nav nav--inline" aria-label="Primary">
             <NavLink
-              to="/challenge/start"
+              to="/solo"
+              end
               className={({ isActive }) =>
                 `nav-link ${isActive ? 'nav-link-active' : ''}`
               }
             >
-              New challenge
+              Solo
+            </NavLink>
+            <Show when="signed-in">
+              <NavLink
+                to="/solo/videos"
+                className={({ isActive }) =>
+                  `nav-link ${isActive ? 'nav-link-active' : ''}`
+                }
+              >
+                My videos
+              </NavLink>
+            </Show>
+            <NavLink
+              to="/challenge/start"
+              className={({ isActive }) =>
+                `nav-link ${isActive || challengeNavActive ? 'nav-link-active' : ''}`
+              }
+            >
+              Challenge
             </NavLink>
             <NavLink
               to="/leaderboard"
@@ -59,6 +86,7 @@ export function Layout({ children }: LayoutProps) {
             </Show>
             <Show when="signed-in">
               <div className="header-auth-user">
+                <HeaderCreditBalance />
                 <UserButton
                   appearance={{
                     elements: {

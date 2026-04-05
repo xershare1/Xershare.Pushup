@@ -263,6 +263,15 @@
   letter-spacing: 0.02em;
 }
 
+.pushup-results-eyebrow--context {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  margin-bottom: 0.15rem;
+}
+
 .pushup-results-number {
   margin: 0;
   font-size: clamp(3.25rem, 18vw, 5.5rem);

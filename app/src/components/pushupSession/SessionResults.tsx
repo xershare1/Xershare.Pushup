@@ -26,6 +26,7 @@ type Props = {
   sessionRecording: Blob | null
   /** Set when a set completes — triggers one solo API sync per key */
   soloSyncKey: string | null
+  variant?: 'solo' | 'default'
 }
 
 export function SessionResults({
@@ -34,6 +35,7 @@ export function SessionResults({
   onBack,
   sessionRecording,
   soloSyncKey,
+  variant = 'default',
 }: Props) {
   const { getToken } = useAuth()
   const feedback = getWorkoutFeedback(reps)
@@ -72,6 +74,7 @@ export function SessionResults({
         const result = await createSoloSession(getToken, {
           reps,
           video: recordingRef.current,
+          sessionId: soloSyncKey,
         })
         if (cancelled) return
         setSoloStatus('saved')
@@ -86,7 +89,6 @@ export function SessionResults({
     return () => {
       cancelled = true
       window.clearTimeout(id)
-      soloSyncSubmittedKeys.delete(soloSyncKey)
     }
   }, [soloSyncKey, reps, getToken])
 
@@ -145,7 +147,7 @@ export function SessionResults({
           Try Again
         </button>
         <Link to="/challenge/create" className="btn btn-secondary pushup-results-cta-secondary">
-          Save your score
+          {variant === 'solo' ? 'Turn this into a challenge' : 'Save your score'}
         </Link>
         {serverVideoUrl ? (
           <a

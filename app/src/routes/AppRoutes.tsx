@@ -11,11 +11,29 @@ import { PushupAlgorithmLab } from '../pages/PushupAlgorithmLab'
 import { PurchaseCredits } from '../pages/PurchaseCredits'
 import { PurchaseSuccess } from '../pages/PurchaseSuccess'
 import { PurchaseCancel } from '../pages/PurchaseCancel'
+import { MyVideos } from '../pages/MyVideos'
+import { SoloSession } from '../pages/SoloSession'
 
 export function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<Home />} />
+      <Route
+        path="/solo"
+        element={
+          <RequireSessionAuth>
+            <SoloSession />
+          </RequireSessionAuth>
+        }
+      />
+      <Route
+        path="/solo/videos"
+        element={
+          <RequireSessionAuth>
+            <MyVideos />
+          </RequireSessionAuth>
+        }
+      />
       <Route
         path="/challenge/start"
         element={

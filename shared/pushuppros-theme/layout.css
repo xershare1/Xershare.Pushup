@@ -40,6 +40,47 @@
 .header-auth-user {
   display: flex;
   align-items: center;
+  gap: 0.75rem;
+}
+
+.header-credits {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.header-credits:hover {
+  border-color: var(--muted);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.header-credits-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+}
+
+.header-credits-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.header-credits--muted {
+  cursor: default;
+  border-style: dashed;
+  color: var(--muted);
 }
 
 /* Clerk UserButton trigger: align with app chrome */

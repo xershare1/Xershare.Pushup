@@ -89,6 +89,11 @@ def get_clerk_secret_key() -> str | None:
     return _env("CLERK_SECRET_KEY")
 
 
+def get_clerk_webhook_secret() -> str | None:
+    """Svix signing secret for Clerk webhooks (Dashboard → Webhooks → Signing Secret)."""
+    return _env("CLERK_WEBHOOK_SECRET")
+
+
 def is_email_enabled() -> bool:
     """When false, notification code logs and skips Resend (local dev without API key)."""
     return _env("EMAIL_ENABLED", "true").lower() not in ("0", "false", "no")

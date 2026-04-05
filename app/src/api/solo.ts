@@ -1,3 +1,4 @@
+import { jsonFetch } from './client'
 import { getApiBaseUrl, isMockApiEnabled } from './config'
 import { HttpError } from './httpError'
 
@@ -5,6 +6,18 @@ export type SoloSessionResponse = {
   sessionId: string
   reps: number
   videoUrl: string | null
+}
+
+export type SoloSessionListItem = {
+  sessionId: string
+  reps: number
+  createdAt: string
+  expiresAt: string
+  videoUrl: string | null
+}
+
+type SoloSessionListOut = {
+  sessions: SoloSessionListItem[]
 }
 
 function parseFastApiDetail(text: string): string {
@@ -27,11 +40,11 @@ function parseFastApiDetail(text: string): string {
  */
 export async function createSoloSession(
   getToken: () => Promise<string | null>,
-  params: { reps: number; video?: Blob | null },
+  params: { reps: number; video?: Blob | null; sessionId?: string },
 ): Promise<SoloSessionResponse> {
   if (isMockApiEnabled()) {
     return {
-      sessionId: 'mock-session',
+      sessionId: params.sessionId ?? 'mock-session',
       reps: params.reps,
       videoUrl: null,
     }
@@ -45,6 +58,9 @@ export async function createSoloSession(
   const base = getApiBaseUrl()
   const form = new FormData()
   form.append('reps', String(params.reps))
+  if (params.sessionId) {
+    form.append('session_id', params.sessionId)
+  }
   if (params.video && params.video.size > 0) {
     const ext = params.video.type.includes('mp4') ? 'mp4' : 'webm'
     form.append('video', params.video, `solo-session.${ext}`)
@@ -65,4 +81,43 @@ export async function createSoloSession(
   }
 
   return res.json() as Promise<SoloSessionResponse>
+}
+
+/**
+ * List non-expired solo sessions (newest first). Presigned video URLs when a recording exists.
+ */
+export async function fetchSoloSessions(
+  getToken: () => Promise<string | null>,
+): Promise<SoloSessionListItem[]> {
+  if (isMockApiEnabled()) {
+    const soon = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+    return [
+      {
+        sessionId: 'mock-session-1',
+        reps: 12,
+        createdAt: new Date().toISOString(),
+        expiresAt: soon,
+        videoUrl: null,
+      },
+    ]
+  }
+
+  const token = await getToken()
+  if (!token) {
+    throw new Error('Sign in to view your videos.')
+  }
+
+  try {
+    const data = await jsonFetch<SoloSessionListOut>('/solo/sessions', {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+    return data.sessions
+  } catch (e) {
+    if (e instanceof HttpError) {
+      throw new HttpError(e.status, parseFastApiDetail(e.message))
+    }
+    throw e
+  }
 }

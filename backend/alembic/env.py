@@ -3,13 +3,17 @@ import sys
 from logging.config import fileConfig
 from pathlib import Path
 
+from dotenv import load_dotenv
 from sqlalchemy import engine_from_config, pool
 
 from alembic import context
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+_backend_dir = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(_backend_dir))
+load_dotenv(_backend_dir / ".env")
 
 from app.db.base import Base
+from app.db.session import normalize_postgresql_url_for_sqlalchemy
 from app.db.models import (  # noqa: F401
     Challenge,
     ChallengeAttempt,
@@ -36,7 +40,7 @@ target_metadata = Base.metadata
 def get_url() -> str:
     url = os.environ.get("DATABASE_URL")
     if url and url.strip():
-        return url.strip()
+        return normalize_postgresql_url_for_sqlalchemy(url.strip())
     return "postgresql+psycopg://postgres:postgres@localhost:5432/pushup"
 
 
