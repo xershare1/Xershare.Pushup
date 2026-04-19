@@ -17,6 +17,7 @@ from sqlalchemy import text
 from app.billing.router import router as billing_router
 from app.challenges.router import router as challenges_router
 from app.config import get_cors_allow_origins, get_database_url
+from app.friends.router import router as friends_router
 from app.solo.router import router as solo_router
 from app.users.router import router as users_router
 from app.webhooks.clerk import router as clerk_webhook_router
@@ -67,14 +68,10 @@ app.add_middleware(
 app.include_router(billing_router, prefix="/billing", tags=["billing"])
 app.include_router(challenges_router)
 app.include_router(users_router)
+app.include_router(friends_router)
 app.include_router(solo_router)
 app.include_router(clerk_webhook_router)
 app.include_router(stripe_webhook_router)
-
-
-@app.get("/")
-def hello() -> dict[str, str]:
-    return {"message": "Hello World"}
 
 
 @app.get("/health")

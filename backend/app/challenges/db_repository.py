@@ -6,19 +6,24 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Literal
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.challenges.logic import submit_attempt_blocked_reason
-from app.challenges.repository import ChallengeRecord, _norm_idempotency_key
+from app.challenges.repository import (
+    ChallengeRecord,
+    _norm_idempotency_key,
+    resolve_actor_clerk_for_role_slot,
+)
 from app.challenges.schemas import CreateChallengeBody
 from app.config import get_challenge_expiry_hours
 from app.db.models.challenge import Challenge
 from app.db.models.challenge_attempt import ChallengeAttempt
+from app.friends.service import is_pair_challenge_blocked, user_ids_for_clerk_pair
 
 
 def _maybe_expire_orm(ch: Challenge) -> bool:
-    if ch.status in ("completed", "cancelled", "expired"):
+    if ch.status in ("completed", "cancelled", "expired", "declined"):
         return False
     if ch.expires_at is None:
         return False
@@ -44,11 +49,12 @@ def _record_from_orm(ch: Challenge) -> ChallengeRecord:
         opponent_clerk_user_id=ch.opponent_clerk_user_id,
         status=ch.status or "pending",
         expires_at=ch.expires_at,
+        completed_at=ch.completed_at,
     )
 
 
 def _sync_challenge_status(ch: Challenge) -> None:
-    if ch.status in ("cancelled", "expired"):
+    if ch.status in ("cancelled", "expired", "declined", "proposed"):
         return
     a = ch.challenger_pushups is not None
     b = ch.opponent_pushups is not None
@@ -65,6 +71,17 @@ def _sync_challenge_status(ch: Challenge) -> None:
 class DbChallengeRepository:
     def __init__(self, session: Session) -> None:
         self.session = session
+
+    def clerk_pair_challenge_blocked(
+        self, challenger_clerk_user_id: str, opponent_clerk_user_id: str
+    ) -> bool:
+        pair = user_ids_for_clerk_pair(
+            self.session, challenger_clerk_user_id, opponent_clerk_user_id
+        )
+        if pair is None:
+            return False
+        uid_a, uid_b = pair
+        return is_pair_challenge_blocked(self.session, uid_a, uid_b)
 
     def create(
         self, body: CreateChallengeBody, *, idempotency_key: str | None = None
@@ -97,7 +114,7 @@ class DbChallengeRepository:
             opponent_email=_norm_email(body.opponentEmail),
             challenger_clerk_user_id=_norm_clerk_id(body.challengerClerkUserId),
             opponent_clerk_user_id=_norm_clerk_id(body.opponentClerkUserId),
-            status="pending",
+            status="proposed",
             initiator_clerk_user_id=init,
             opponent_is_member=bool(oid),
             expires_at=expires_at,
@@ -106,6 +123,27 @@ class DbChallengeRepository:
         self.session.add(ch)
         self.session.flush()
         return _record_from_orm(ch)
+
+    def list_for_clerk_user(self, clerk_user_id: str) -> list[ChallengeRecord]:
+        c = (clerk_user_id or "").strip()
+        if not c:
+            return []
+        rows = self.session.scalars(
+            select(Challenge)
+            .where(
+                or_(
+                    Challenge.challenger_clerk_user_id == c,
+                    Challenge.opponent_clerk_user_id == c,
+                )
+            )
+            .order_by(Challenge.created_at.desc())
+        ).all()
+        out: list[ChallengeRecord] = []
+        for ch in rows:
+            _maybe_expire_orm(ch)
+            out.append(_record_from_orm(ch))
+        self.session.flush()
+        return out
 
     def get(self, challenge_id: str) -> ChallengeRecord | None:
         ch = self.session.scalars(
@@ -137,6 +175,8 @@ class DbChallengeRepository:
             ch.expires_at = rec.expires_at
         if rec.status:
             ch.status = rec.status
+        if rec.completed_at is not None:
+            ch.completed_at = rec.completed_at
         _sync_challenge_status(ch)
         self.session.flush()
 
@@ -150,6 +190,8 @@ class DbChallengeRepository:
         *,
         role: Literal["challenger", "opponent"],
         pushup_count: int,
+        actor_clerk_user_id: str,
+        video_s3_key: str | None = None,
     ) -> ChallengeRecord:
         ch = self.session.scalars(
             select(Challenge).where(Challenge.id == challenge_id).options(selectinload(Challenge.attempts))
@@ -178,15 +220,27 @@ class DbChallengeRepository:
             )
             raise ValueError(msg)
 
-        clerk_user_id = (
-            ch.challenger_clerk_user_id if role == "challenger" else ch.opponent_clerk_user_id
-        )
+        if role == "challenger":
+            resolved_clerk = resolve_actor_clerk_for_role_slot(
+                ch.challenger_clerk_user_id,
+                actor_clerk_user_id,
+                "challenger",
+            )
+            ch.challenger_clerk_user_id = resolved_clerk
+        else:
+            resolved_clerk = resolve_actor_clerk_for_role_slot(
+                ch.opponent_clerk_user_id,
+                actor_clerk_user_id,
+                "opponent",
+            )
+            ch.opponent_clerk_user_id = resolved_clerk
 
         att = ChallengeAttempt(
             challenge_id=challenge_id,
             participant_role=role,
-            clerk_user_id=clerk_user_id,
+            clerk_user_id=resolved_clerk,
             pushup_count=pushup_count,
+            video_s3_key=video_s3_key,
         )
         self.session.add(att)
 

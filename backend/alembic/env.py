@@ -21,6 +21,8 @@ from app.db.models import (  # noqa: F401
     CreditAccount,
     CreditTransaction,
     EmailSuppression,
+    FriendInvitation,
+    Friendship,
     Notification,
     PaymentTransaction,
     RateLimitCounter,
@@ -28,6 +30,7 @@ from app.db.models import (  # noqa: F401
     StripeCustomer,
     StripeEvent,
     User,
+    UserChallengeBlock,
 )
 
 config = context.config

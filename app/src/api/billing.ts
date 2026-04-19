@@ -1,4 +1,4 @@
-import { jsonFetch } from './client'
+import { type ClerkGetToken, jsonFetchAuthed } from './client'
 import { isMockApiEnabled } from './config'
 
 export type BundleCode = 'starter' | 'challenger' | 'pro'
@@ -7,7 +7,7 @@ export type BundleCode = 'starter' | 'challenger' | 'pro'
  * Authenticated user's credit balance (0 when no ledger row yet).
  */
 export async function fetchCreditBalance(
-  getToken: () => Promise<string | null>,
+  getToken: ClerkGetToken,
 ): Promise<number> {
   if (isMockApiEnabled()) {
     return 0
@@ -16,12 +16,8 @@ export async function fetchCreditBalance(
   if (!token) {
     return 0
   }
-  const data = await jsonFetch<{ balance: number }>('/billing/balance', {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  })
-  return data.balance
+  const data = await jsonFetchAuthed<{ balance: number }>(getToken, '/billing/balance')
+  return data.balance ?? 0
 }
 
 /**
@@ -29,7 +25,7 @@ export async function fetchCreditBalance(
  * Caller must supply Clerk session JWT via getToken().
  */
 export async function createCheckoutSession(
-  getToken: () => Promise<string | null>,
+  getToken: ClerkGetToken,
   bundleCode: BundleCode,
 ): Promise<string> {
   const token = await getToken()
@@ -37,12 +33,13 @@ export async function createCheckoutSession(
     throw new Error('Sign in to purchase credits.')
   }
   console.log('bundleCode', bundleCode)
-  const data = await jsonFetch<{ url: string }>('/billing/create-checkout-session', {
-    method: 'POST',
-    body: JSON.stringify({ bundle_code: bundleCode }),
-    headers: {
-      Authorization: `Bearer ${token}`,
+  const data = await jsonFetchAuthed<{ url: string }>(
+    getToken,
+    '/billing/create-checkout-session',
+    {
+      method: 'POST',
+      body: JSON.stringify({ bundle_code: bundleCode }),
     },
-  })
+  )
   return data.url
 }

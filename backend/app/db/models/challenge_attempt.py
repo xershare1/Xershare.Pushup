@@ -31,6 +31,7 @@ class ChallengeAttempt(Base):
     participant_role: Mapped[str] = mapped_column(String(16), nullable=False)
     clerk_user_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     pushup_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    video_s3_key: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     submitted_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

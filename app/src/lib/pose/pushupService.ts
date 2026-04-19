@@ -2,13 +2,20 @@ import type { Keypoint, Pose } from '@tensorflow-models/pose-detection'
 import { POSE_KEYPOINTS } from './poseKeyPoints'
 
 /** Exclusive elbow angle bounds (°) for “arms extended” at top of rep. Exported for lab gauge; same source as `isInUpPosition`. */
-export const UP_ELBOW_DEG = { min: 130, max: 170 } as const
+export const UP_ELBOW_DEG = { min: 130, max: 178 } as const
 
 /** Exclusive elbow angle bounds (°) for bottom of rep (with nose heuristic unchanged). Exported for lab gauge; same source as `isInDownPosition`. */
-export const DOWN_ELBOW_DEG = { min: 50, max: 80 } as const
+export const DOWN_ELBOW_DEG = { min: 45, max: 85 } as const
+
+/** Cosine alignment knee–hip–shoulder; rep counting accepts a slightly wider band than early iterations. */
+export const BACK_STRAIGHT_COSINE_MIN = 0.78
+export const BACK_STRAIGHT_COSINE_MAX = 1
 
 /** Interior angle at knee (hip–knee–ankle). Near 180° = full plank; kneeling is much lower. */
-const MIN_KNEE_ANGLE_DEG = 160
+const MIN_KNEE_ANGLE_DEG = 155
+
+/** Nose vs shoulder-midline (px): below this, facing is ambiguous (relaxed for fewer dropped frames). */
+const MIN_FACING_NOSE_DELTA = 22
 
 const MIN_LEG_KEYPOINT_SCORE = 0.25
 
@@ -40,9 +47,7 @@ export class PushupService {
 
     const shoulderMidX = (leftShoulder.x + rightShoulder.x) / 2
     const delta = nose.x - shoulderMidX
-    const minDelta = 40
-
-    if (Math.abs(delta) < minDelta) {
+    if (Math.abs(delta) < MIN_FACING_NOSE_DELTA) {
       return 'invalid'
     }
 
@@ -172,5 +177,10 @@ export class PushupService {
     if (facing != null && facing >= MIN_KNEE_ANGLE_DEG) return true
     if (other != null && other >= MIN_KNEE_ANGLE_DEG) return true
     return false
+  }
+
+  /** Straight enough for rep counting / readiness (shared cosine band). */
+  static isBackStraightEnough(cos: number): boolean {
+    return cos > BACK_STRAIGHT_COSINE_MIN && cos < BACK_STRAIGHT_COSINE_MAX
   }
 }

@@ -1,5 +1,9 @@
 import { type ChangeEvent, useCallback, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import {
+  downloadPushupDebugExport,
+  type PushupDebugExportFrame,
+} from '../lib/pose/pushupDebugExport'
 import { PushupService } from '../lib/pose/pushupService'
 import {
   advanceRepTrackerFromPoseFrameBased,
@@ -23,27 +27,54 @@ export function PushupAlgorithmLab() {
 
   const [videoReady, setVideoReady] = useState(false)
   const [analysisEnabled, setAnalysisEnabled] = useState(false)
+  /** When false, analysis still runs but frames are not appended to the downloadable JSON buffer. */
+  const [debugLogEnabled, setDebugLogEnabled] = useState(true)
 
   const trackerRef = useRef<FrameRepTrackerState>(createInitialFrameRepTracker())
   const svcRef = useRef(new PushupService())
 
   const [reps, setReps] = useState(0)
   const [lastFrame, setLastFrame] = useState<PushupRepFrameDebug | null>(null)
+  const [debugFrameCount, setDebugFrameCount] = useState(0)
+
+  const debugFramesRef = useRef<PushupDebugExportFrame[]>([])
 
   const onFile = (e: ChangeEvent<HTMLInputElement>) => {
     setFile(e.target.files?.[0] ?? null)
     setVideoReady(false)
     setAnalysisEnabled(false)
+    setDebugLogEnabled(true)
     trackerRef.current = createInitialFrameRepTracker()
     setReps(0)
     setLastFrame(null)
+    debugFramesRef.current = []
+    setDebugFrameCount(0)
   }
 
   const resetTracker = () => {
     trackerRef.current = createInitialFrameRepTracker()
     setReps(0)
     setLastFrame(null)
+    debugFramesRef.current = []
+    setDebugFrameCount(0)
   }
+
+  const downloadDebugLog = useCallback(() => {
+    const video = videoRef.current
+    const rows = debugFramesRef.current
+    if (rows.length === 0) return
+
+    downloadPushupDebugExport(
+      {
+        exportedAt: new Date().toISOString(),
+        sourceFileName: file?.name ?? null,
+        videoDurationSec: video && Number.isFinite(video.duration) ? video.duration : null,
+        frameCount: rows.length,
+        frames: rows,
+      },
+      'pushup-algorithm-debug',
+    )
+  }, [file])
 
   const onPoseFrame = useCallback((payload: PoseFramePayload | null) => {
     if (!analysisEnabled || !payload) return
@@ -63,7 +94,21 @@ export function PushupAlgorithmLab() {
     if (r.debug) {
       setLastFrame(r.debug)
     }
-  }, [analysisEnabled])
+
+    if (debugLogEnabled) {
+      const row: PushupDebugExportFrame = {
+        i: debugFramesRef.current.length,
+        tSec: Math.round(video.currentTime * 1000) / 1000,
+        poseScore: payload.poseScore,
+        repAdded: r.repAdded,
+        repCount: r.state.repCount,
+        lastStable: r.state.lastStable,
+        debug: r.debug,
+      }
+      debugFramesRef.current.push(row)
+      setDebugFrameCount(debugFramesRef.current.length)
+    }
+  }, [analysisEnabled, debugLogEnabled])
 
   const { error: poseError } = usePoseEstimationLoop(videoRef, analysisEnabled && videoReady, onPoseFrame)
 
@@ -72,7 +117,9 @@ export function PushupAlgorithmLab() {
       <h1 className="page-title">Pushup algorithm lab</h1>
       <p className="lede">
         Upload a side-view pushup video to replay the same rep counter as the live session. Use Play /
-        pause and playback speed; enable analysis while the video is playing.
+        pause and playback speed; enable analysis while the video is playing. Optionally turn off{' '}
+        <strong>Record debug log</strong> to skip building the per-frame JSON buffer (reps and the live
+        panel still update). When you want a capture, use <strong>Download debug log</strong>.
       </p>
 
       <div className="card stack pushup-algo-lab-upload">
@@ -139,7 +186,7 @@ export function PushupAlgorithmLab() {
           </div>
         </div>
 
-        <div className="actions wrap">
+        <div className="actions wrap pushup-algo-lab-actions">
           <button
             type="button"
             className={analysisEnabled ? 'btn btn-secondary' : 'btn btn-primary'}
@@ -148,8 +195,26 @@ export function PushupAlgorithmLab() {
           >
             {analysisEnabled ? 'Pause analysis' : 'Run analysis'}
           </button>
+          <label className="pushup-algo-lab-debug-toggle">
+            <input
+              type="checkbox"
+              checked={debugLogEnabled}
+              onChange={(e) => setDebugLogEnabled(e.target.checked)}
+              disabled={!file}
+            />
+            <span>Record debug log</span>
+          </label>
           <button type="button" className="btn btn-secondary" onClick={resetTracker} disabled={!file}>
             Reset counter
+          </button>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={downloadDebugLog}
+            disabled={debugFrameCount === 0}
+            title="Download JSON of every recorded frame (for tuning the algorithm)"
+          >
+            Download debug log ({debugFrameCount} frames)
           </button>
         </div>
 

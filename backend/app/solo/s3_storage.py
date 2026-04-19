@@ -49,6 +49,36 @@ def upload_solo_video(
     return key
 
 
+def upload_challenge_attempt_video(
+    *,
+    challenge_id: str,
+    clerk_user_id: str,
+    role: str,
+    body: bytes,
+    content_type: str | None,
+) -> str:
+    """Upload bytes to S3. Returns ``challenge/{challenge_id}/{clerk_user_id}/{role}.mp4``."""
+    bucket = get_aws_s3_bucket()
+    if not bucket:
+        raise ValueError("AWS_S3_BUCKET is not set")
+    safe_challenge = (challenge_id or "").strip().replace("/", "_")[:40]
+    safe_clerk = "".join(c if c.isalnum() or c in "-_" else "_" for c in (clerk_user_id or ""))[:128]
+    safe_role = "challenger" if role == "challenger" else "opponent"
+    ct_lower = (content_type or "").lower()
+    ext = "webm" if "webm" in ct_lower else "mp4"
+    key = f"challenge/{safe_challenge}/{safe_clerk}/{safe_role}.{ext}"
+    ct = (content_type or "video/mp4").split(";")[0].strip().lower()
+    if ct not in _ALLOWED_VIDEO_TYPES:
+        raise ValueError(f"Unsupported video content type: {content_type!r}")
+    _client().put_object(
+        Bucket=bucket,
+        Key=key,
+        Body=body,
+        ContentType=ct if ct != "application/octet-stream" else "video/mp4",
+    )
+    return key
+
+
 def delete_s3_object(key: str) -> None:
     bucket = get_aws_s3_bucket()
     if not bucket or not key:

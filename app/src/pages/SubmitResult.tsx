@@ -1,21 +1,61 @@
-import { type FormEvent, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
+import { useAuth, useUser } from '@clerk/react'
 import { getChallenge, submitAttempt } from '../api/challenges'
 import type { Challenge, ParticipantRole } from '../types/challenge'
 import { getLifecycle } from '../lib/challengeLifecycle'
 import { formatError } from '../lib/formatError'
+import { PushupSession } from '../components/pushupSession/PushupSession'
+
+function nameFromSession(user: ReturnType<typeof useUser>['user']): string {
+  if (!user) return 'Challenger'
+  const full = user.fullName?.trim()
+  if (full) return full
+  const fn = user.firstName?.trim() ?? ''
+  const ln = user.lastName?.trim() ?? ''
+  const combined = `${fn} ${ln}`.trim()
+  if (combined) return combined
+  if (user.username) return user.username
+  const em = user.primaryEmailAddress?.emailAddress
+  if (em) {
+    const local = em.split('@')[0]
+    if (local) return local
+  }
+  return 'Challenger'
+}
+
+type Step = 'loading' | 'session' | 'confirm' | 'submitting' | 'error'
+
+/** Prefer Clerk identity over score heuristics so the opponent never submits as challenger. */
+function inferParticipantRole(c: Challenge, clerkUserId: string | undefined): ParticipantRole {
+  const uid = (clerkUserId ?? '').trim()
+  const ch = (c.challengerClerkUserId ?? '').trim()
+  const op = (c.opponentClerkUserId ?? '').trim()
+
+  if (uid && ch && uid === ch) return 'challenger'
+  if (uid && op && uid === op) return 'opponent'
+
+  if (c.challengerPushups !== null && c.opponentPushups === null) return 'opponent'
+  if (c.opponentPushups !== null && c.challengerPushups === null) return 'challenger'
+
+  if (uid && ch && !op && uid !== ch) return 'opponent'
+
+  return 'challenger'
+}
 
 export function SubmitResult() {
   const { challengeId } = useParams()
   const navigate = useNavigate()
-  const [challenge, setChallenge] = useState<Challenge | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const { user } = useUser()
+  const { getToken } = useAuth()
 
-  const [participantName, setParticipantName] = useState('')
-  const [pushupCount, setPushupCount] = useState('')
+  const [challenge, setChallenge] = useState<Challenge | null>(null)
   const [role, setRole] = useState<ParticipantRole>('challenger')
+  const [step, setStep] = useState<Step>('loading')
+  const [pendingReps, setPendingReps] = useState<number | null>(null)
+  const [pendingRecording, setPendingRecording] = useState<Blob | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!challengeId) return
@@ -23,156 +63,147 @@ export function SubmitResult() {
     void (async () => {
       await Promise.resolve()
       if (cancelled) return
-      setLoading(true)
-      setError(null)
+      setStep('loading')
+      setLoadError(null)
       try {
         const c = await getChallenge(challengeId)
-        if (!cancelled) {
-          setChallenge(c)
-          if (c.challengerPushups !== null && c.opponentPushups === null) {
-            setRole('opponent')
-          }
+        if (cancelled) return
+        setChallenge(c)
+        if ((c.status ?? '').toLowerCase() === 'proposed') {
+          setLoadError('This challenge has not been accepted yet. Go back to the challenge page to accept or decline.')
+          setStep('error')
+          return
         }
+        setRole(inferParticipantRole(c, user?.id))
+        setStep('session')
       } catch (err) {
-        if (!cancelled) setError(formatError(err))
-      } finally {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) {
+          setLoadError(formatError(err))
+          setStep('error')
+        }
       }
     })()
     return () => {
       cancelled = true
     }
-  }, [challengeId])
+  }, [challengeId, user?.id])
 
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault()
-    if (!challengeId) return
-    setError(null)
-    setSubmitting(true)
-    const count = Number(pushupCount)
-    if (!Number.isFinite(count) || count < 0) {
-      setError('Enter a valid pushup count.')
-      setSubmitting(false)
-      return
-    }
+  const onSessionComplete = useCallback((reps: number, recording: Blob | null) => {
+    setPendingReps(reps)
+    setPendingRecording(recording)
+    setStep('confirm')
+  }, [])
 
+  async function onConfirmSubmit() {
+    if (!challengeId || pendingReps === null) return
+    setSubmitError(null)
+    setStep('submitting')
+    const participantName = nameFromSession(user)
     try {
-      const updated = await submitAttempt(challengeId, {
+      const updated = await submitAttempt(getToken, challengeId, {
         participantName,
-        pushupCount: count,
+        pushupCount: pendingReps,
         role,
+        video: pendingRecording && pendingRecording.size > 0 ? pendingRecording : undefined,
       })
       const done = getLifecycle(updated) === 'complete'
       navigate(done ? `/c/${challengeId}/result` : `/c/${challengeId}`)
     } catch (err) {
-      setError(formatError(err))
-    } finally {
-      setSubmitting(false)
+      setSubmitError(formatError(err))
+      setStep('confirm')
     }
+  }
+
+  function onRedo() {
+    setPendingReps(null)
+    setPendingRecording(null)
+    setSubmitError(null)
+    setStep('session')
   }
 
   if (!challengeId) {
     return <p className="muted">Missing challenge id.</p>
   }
 
-  if (loading) {
+  if (step === 'loading') {
     return <p className="muted">Loading challenge…</p>
   }
 
-  if (error && !challenge) {
+  if (step === 'error') {
     return (
       <section className="stack narrow">
         <p className="banner banner-error" role="alert">
-          {error}
+          {loadError}
         </p>
-        <Link className="btn btn-ghost" to="/">
-          Back home
-        </Link>
+        <div className="actions wrap">
+          {challengeId ? (
+            <Link className="btn btn-primary" to={`/c/${challengeId}`}>
+              Back to challenge
+            </Link>
+          ) : null}
+          <Link className="btn btn-ghost" to="/">
+            Back home
+          </Link>
+        </div>
       </section>
     )
   }
 
-  if (!challenge) {
-    return null
-  }
+  if (!challenge) return null
 
   if (challenge.challengerPushups !== null && challenge.opponentPushups !== null) {
     return <Navigate to={`/c/${challenge.id}/result`} replace />
   }
 
-  const challengerLocked = challenge.challengerPushups !== null
-  const opponentLocked = challenge.opponentPushups !== null
+  if (step === 'session') {
+    return (
+      <section className="stack pushup-session-page">
+        <PushupSession
+          onBack={() => navigate(`/c/${challengeId}`)}
+          onSessionComplete={onSessionComplete}
+          variant="default"
+        />
+      </section>
+    )
+  }
 
   return (
     <section className="stack narrow">
-      <h1 className="page-title">Log reps</h1>
+      <h1 className="page-title">Your result</h1>
       <p className="lede">
-        Enter your name and how many pushups you completed for this challenge.
+        You did <strong>{pendingReps}</strong> push-up{pendingReps !== 1 ? 's' : ''} for this
+        challenge. Submit to lock in your score.
       </p>
 
-      <form className="card form" onSubmit={onSubmit}>
-        {error ? (
+      <div className="card form stack">
+        {submitError ? (
           <p className="banner banner-error" role="alert">
-            {error}
+            {submitError}
           </p>
         ) : null}
 
-        <fieldset className="field">
-          <legend>You are</legend>
-          <label className="inline">
-            <input
-              type="radio"
-              name="role"
-              checked={role === 'challenger'}
-              disabled={challengerLocked}
-              onChange={() => setRole('challenger')}
-            />
-            <span>Challenger ({challenge.challengerName})</span>
-          </label>
-          <label className="inline">
-            <input
-              type="radio"
-              name="role"
-              checked={role === 'opponent'}
-              disabled={opponentLocked}
-              onChange={() => setRole('opponent')}
-            />
-            <span>Opponent ({challenge.opponentName})</span>
-          </label>
-        </fieldset>
-
-        <label className="field">
-          <span>Participant name</span>
-          <input
-            name="participantName"
-            autoComplete="name"
-            required
-            value={participantName}
-            onChange={(e) => setParticipantName(e.target.value)}
-          />
-        </label>
-
-        <label className="field">
-          <span>Pushup count</span>
-          <input
-            name="pushupCount"
-            inputMode="numeric"
-            required
-            min={0}
-            value={pushupCount}
-            onChange={(e) => setPushupCount(e.target.value)}
-          />
-        </label>
-
         <div className="actions wrap">
-          <button className="btn btn-primary" type="submit" disabled={submitting}>
-            {submitting ? 'Saving…' : 'Submit'}
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={onConfirmSubmit}
+            disabled={step === 'submitting'}
+          >
+            {step === 'submitting' ? 'Submitting…' : `Submit ${pendingReps ?? ''} reps`}
           </button>
-          <Link className="btn btn-ghost" to={`/c/${challenge.id}`}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={onRedo}
+            disabled={step === 'submitting'}
+          >
+            Redo session
+          </button>
+          <Link className="btn btn-ghost" to={`/c/${challengeId}`}>
             Cancel
           </Link>
         </div>
-      </form>
+      </div>
     </section>
   )
 }

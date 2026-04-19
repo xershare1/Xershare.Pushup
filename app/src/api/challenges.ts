@@ -1,9 +1,11 @@
+import { type ClerkGetToken } from './client'
 import { isMockApiEnabled } from './config'
 import * as mock from './mock/challenges'
 import * as real from './real/challenges'
 import type {
   Challenge,
   ChallengeOutcome,
+  ChallengeVideoItem,
   CreateChallengeBody,
   CreateChallengeResponse,
   LeaderboardEntry,
@@ -21,12 +23,13 @@ export async function getChallenge(id: string): Promise<Challenge> {
 }
 
 export async function submitAttempt(
+  getToken: ClerkGetToken,
   challengeId: string,
   body: SubmitAttemptBody,
 ): Promise<Challenge> {
   return isMockApiEnabled()
-    ? mock.submitAttempt(challengeId, body)
-    : real.submitAttempt(challengeId, body)
+    ? mock.submitAttempt(getToken, challengeId, body)
+    : real.submitAttempt(getToken, challengeId, body)
 }
 
 export async function getResult(challengeId: string): Promise<ChallengeOutcome> {
@@ -37,9 +40,53 @@ export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
   return isMockApiEnabled() ? mock.getLeaderboard() : real.getLeaderboard()
 }
 
+export async function fetchMyChallenges(
+  getToken: ClerkGetToken,
+): Promise<Challenge[]> {
+  return isMockApiEnabled()
+    ? mock.fetchMyChallenges(getToken)
+    : real.fetchMyChallenges(getToken)
+}
+
+export async function fetchChallengeVideos(
+  getToken: ClerkGetToken,
+): Promise<ChallengeVideoItem[]> {
+  return isMockApiEnabled()
+    ? mock.fetchChallengeVideos()
+    : real.fetchChallengeVideos(getToken)
+}
+
+export async function acceptChallenge(
+  getToken: ClerkGetToken,
+  challengeId: string,
+): Promise<Challenge> {
+  return isMockApiEnabled()
+    ? mock.acceptChallenge(getToken, challengeId)
+    : real.acceptChallenge(getToken, challengeId)
+}
+
+export async function declineChallenge(
+  getToken: ClerkGetToken,
+  challengeId: string,
+): Promise<Challenge> {
+  return isMockApiEnabled()
+    ? mock.declineChallenge(getToken, challengeId)
+    : real.declineChallenge(getToken, challengeId)
+}
+
+export async function cancelChallenge(
+  getToken: ClerkGetToken,
+  challengeId: string,
+): Promise<Challenge> {
+  return isMockApiEnabled()
+    ? mock.cancelChallenge(getToken, challengeId)
+    : real.cancelChallenge(getToken, challengeId)
+}
+
 export type {
   Challenge,
   ChallengeOutcome,
+  ChallengeVideoItem,
   CreateChallengeBody,
   CreateChallengeResponse,
   LeaderboardEntry,

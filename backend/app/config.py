@@ -84,6 +84,19 @@ def get_clerk_jwt_issuer() -> str:
     return s
 
 
+def get_clerk_jwt_leeway_seconds() -> int:
+    """
+    PyJWT ``leeway`` for ``iat`` / ``nbf`` / ``exp`` (clock skew vs Clerk).
+    Optional env ``CLERK_JWT_LEEWAY_SECONDS``; default 60; clamped 0..300.
+    """
+    raw = _env("CLERK_JWT_LEEWAY_SECONDS", "60") or "60"
+    try:
+        n = int(raw)
+    except ValueError:
+        n = 60
+    return max(0, min(n, 300))
+
+
 def get_clerk_secret_key() -> str | None:
     """Clerk Backend API (Bearer). Required for user lookup and public_metadata updates."""
     return _env("CLERK_SECRET_KEY")
@@ -164,6 +177,17 @@ def get_solo_max_video_bytes() -> int:
         return max(1_000_000, min(500 * 1024 * 1024, int(raw or str(50 * 1024 * 1024))))
     except (TypeError, ValueError):
         return 50 * 1024 * 1024
+
+
+def get_challenge_max_video_bytes() -> int:
+    """Max upload size for challenge attempt video (submit only). Defaults to solo limit."""
+    raw = _env("CHALLENGE_MAX_VIDEO_BYTES", "")
+    if not (raw or "").strip():
+        return get_solo_max_video_bytes()
+    try:
+        return max(1_000_000, min(500 * 1024 * 1024, int(raw)))
+    except (TypeError, ValueError):
+        return get_solo_max_video_bytes()
 
 
 def get_solo_max_reps() -> int:

@@ -2,7 +2,18 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { PushupSession } from '../components/pushupSession/PushupSession'
 
+import '../components/pushupSession/pushup-session.css'
+
 type Mode = 'choose' | 'record'
+
+function ClockIcon() {
+  return (
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" />
+      <path stroke="currentColor" strokeWidth="2" strokeLinecap="round" d="M12 7v5l3 2" />
+    </svg>
+  )
+}
 
 /**
  * Practice alone: camera + reps + optional video persisted as POST /solo/session.
@@ -15,40 +26,50 @@ export function SoloSession() {
     setMode('choose')
   }
 
+  if (mode === 'record') {
+    return <PushupSession onBack={backToChoose} variant="solo" />
+  }
+
   return (
-    <section
-      className={mode === 'record' ? 'stack pushup-session-page' : 'stack narrow'}
-    >
-      <h1 className="page-title">Solo session</h1>
-      <p className="lede">
-        Practice on your own. We log your reps (and optional video) to your account — not a
-        head-to-head challenge.
-      </p>
-
-      {mode === 'choose' ? (
-        <div className="card stack">
-          <div
-            className="actions"
-            style={{ flexDirection: 'column', alignItems: 'stretch' }}
-          >
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => setMode('record')}
-            >
-              Start solo set
-            </button>
-          </div>
-          <p className="muted" style={{ margin: 0, fontSize: '0.9rem' }}>
-            Want to compete instead?{' '}
-            <Link to="/challenge/start">Start a challenge</Link>.
-          </p>
+    <section className="solo-choose">
+      <div className="solo-choose-card">
+        <div className="solo-choose-icon" aria-hidden>
+          <ClockIcon />
         </div>
-      ) : null}
-
-      {mode === 'record' ? (
-        <PushupSession onBack={backToChoose} variant="solo" />
-      ) : null}
+        <h1 className="solo-choose-title">Solo session</h1>
+        <p className="solo-choose-subtitle">
+          Practice on your own. Your reps and optional video are saved to your account — not a
+          head-to-head challenge.
+        </p>
+        <div className="solo-choose-pills">
+          <span className="solo-choose-pill">
+            <span className="solo-choose-pill-dot" aria-hidden />
+            60 second set
+          </span>
+          <span className="solo-choose-pill">
+            <span className="solo-choose-pill-dot" aria-hidden />
+            AI rep counting
+          </span>
+          <span className="solo-choose-pill">
+            <span className="solo-choose-pill-dot" aria-hidden />
+            Video saved
+          </span>
+        </div>
+        <button
+          type="button"
+          className="solo-choose-cta"
+          onClick={() => setMode('record')}
+        >
+          Start solo set →
+        </button>
+        <p className="solo-choose-foot">
+          Want to compete?{' '}
+          <Link to="/challenge/start" className="solo-choose-link">
+            Start a challenge
+          </Link>
+          .
+        </p>
+      </div>
     </section>
   )
 }

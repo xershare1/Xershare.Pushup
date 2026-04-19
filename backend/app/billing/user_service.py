@@ -10,7 +10,7 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
@@ -118,3 +118,18 @@ def sync_user_from_clerk(session: Session, clerk_user_id: str) -> User:
     apply_clerk_user_dict(u, clerk)
     session.flush()
     return u
+
+
+def find_users_by_display_name(session: Session, display_name: str) -> list[User]:
+    """Case-insensitive match on trimmed ``User.display_name`` (non-null only)."""
+    raw = (display_name or "").strip()
+    if not raw:
+        return []
+    needle = raw.lower()
+    rows = session.scalars(
+        select(User).where(
+            User.display_name.isnot(None),
+            func.lower(func.trim(User.display_name)) == needle,
+        )
+    ).all()
+    return list(rows)

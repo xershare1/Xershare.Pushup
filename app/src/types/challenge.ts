@@ -4,7 +4,6 @@ export type CreateChallengeBody = {
   challengerName: string
   opponentName: string
   message?: string
-  /** Display only; not used for automated email */
   challengerEmail?: string
   opponentEmail?: string
   /** When set, server verifies via Clerk and may email the opponent */
@@ -23,6 +22,12 @@ export type Challenge = {
   opponentEmail?: string
   challengerClerkUserId?: string
   opponentClerkUserId?: string
+  /** Server: proposed | pending | active | completed | declined | cancelled | expired */
+  status?: string | null
+  /** ISO datetime when the challenge window ends (optional; from API). */
+  expiresAt?: string | null
+  /** Optional creation time for relative meta (mock or future API). */
+  createdAt?: string | null
 }
 
 export type CreateChallengeResponse = {
@@ -35,6 +40,16 @@ export type SubmitAttemptBody = {
   participantName: string
   pushupCount: number
   role: ParticipantRole
+  /** Optional recording; uploaded only on submit (multipart). */
+  video?: Blob
+}
+
+export type ChallengeVideoItem = {
+  challengeId: string
+  role: ParticipantRole
+  pushupCount: number
+  submittedAt: string
+  videoUrl: string | null
 }
 
 export type ChallengeOutcome = {

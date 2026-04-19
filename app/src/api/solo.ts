@@ -1,5 +1,5 @@
-import { jsonFetch } from './client'
-import { getApiBaseUrl, isMockApiEnabled } from './config'
+import { type ClerkGetToken, fetchAuthed, jsonFetchAuthed } from './client'
+import { isMockApiEnabled } from './config'
 import { HttpError } from './httpError'
 
 export type SoloSessionResponse = {
@@ -39,7 +39,7 @@ function parseFastApiDetail(text: string): string {
  * Uses multipart/form-data; do not set Content-Type (browser sets boundary).
  */
 export async function createSoloSession(
-  getToken: () => Promise<string | null>,
+  getToken: ClerkGetToken,
   params: { reps: number; video?: Blob | null; sessionId?: string },
 ): Promise<SoloSessionResponse> {
   if (isMockApiEnabled()) {
@@ -55,7 +55,6 @@ export async function createSoloSession(
     throw new Error('Sign in to save your session.')
   }
 
-  const base = getApiBaseUrl()
   const form = new FormData()
   form.append('reps', String(params.reps))
   if (params.sessionId) {
@@ -66,12 +65,8 @@ export async function createSoloSession(
     form.append('video', params.video, `solo-session.${ext}`)
   }
 
-  const res = await fetch(`${base}/solo/session`, {
+  const res = await fetchAuthed(getToken, '/solo/session', {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: 'application/json',
-    },
     body: form,
   })
 
@@ -87,16 +82,43 @@ export async function createSoloSession(
  * List non-expired solo sessions (newest first). Presigned video URLs when a recording exists.
  */
 export async function fetchSoloSessions(
-  getToken: () => Promise<string | null>,
+  getToken: ClerkGetToken,
 ): Promise<SoloSessionListItem[]> {
   if (isMockApiEnabled()) {
-    const soon = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+    const now = Date.now()
+    const hour = 60 * 60 * 1000
+    const day = 24 * hour
+    const in23h = new Date(now + 23 * hour).toISOString()
+    const in30h = new Date(now + 30 * hour).toISOString()
+    const sampleVideo =
+      'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.webm'
     return [
       {
-        sessionId: 'mock-session-1',
-        reps: 12,
-        createdAt: new Date().toISOString(),
-        expiresAt: soon,
+        sessionId: 's1',
+        reps: 28,
+        createdAt: new Date(now).toISOString(),
+        expiresAt: in23h,
+        videoUrl: sampleVideo,
+      },
+      {
+        sessionId: 's2',
+        reps: 30,
+        createdAt: new Date(now - 3 * hour).toISOString(),
+        expiresAt: in30h,
+        videoUrl: sampleVideo,
+      },
+      {
+        sessionId: 's3',
+        reps: 22,
+        createdAt: new Date(now - 2 * day).toISOString(),
+        expiresAt: new Date(now + 20 * hour).toISOString(),
+        videoUrl: null,
+      },
+      {
+        sessionId: 's4',
+        reps: 24,
+        createdAt: new Date(now - 3 * day).toISOString(),
+        expiresAt: new Date(now + 18 * hour).toISOString(),
         videoUrl: null,
       },
     ]
@@ -108,11 +130,7 @@ export async function fetchSoloSessions(
   }
 
   try {
-    const data = await jsonFetch<SoloSessionListOut>('/solo/sessions', {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    })
+    const data = await jsonFetchAuthed<SoloSessionListOut>(getToken, '/solo/sessions')
     return data.sessions
   } catch (e) {
     if (e instanceof HttpError) {

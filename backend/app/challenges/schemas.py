@@ -47,6 +47,14 @@ class SubmitAttemptBody(BaseModel):
     role: Literal["challenger", "opponent"]
 
 
+class ChallengeVideoItemOut(BaseModel):
+    challengeId: str
+    role: Literal["challenger", "opponent"]
+    pushupCount: int
+    submittedAt: datetime
+    videoUrl: str | None = None
+
+
 class ChallengeOutcomeOut(BaseModel):
     challengeId: str
     challengerName: str

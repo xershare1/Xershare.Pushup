@@ -24,6 +24,36 @@ def _norm_idempotency_key(raw: str | None) -> str | None:
     return str(raw).strip()[:128]
 
 
+class AttemptForbiddenError(Exception):
+    """JWT subject does not match the Clerk id bound to this challenge role."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+        self.message = message
+
+
+def resolve_actor_clerk_for_role_slot(
+    current_bound_clerk_id: str | None,
+    actor_clerk_user_id: str,
+    role_label: str,
+) -> str:
+    """
+    If the role slot has no Clerk id yet (e.g. shareable link), bind ``actor``.
+    If it is set, it must match ``actor`` or raise AttemptForbiddenError.
+    """
+    actor = (actor_clerk_user_id or "").strip()
+    if not actor:
+        raise ValueError("Signed-in user is required to submit an attempt.")
+    bound = _norm_clerk_id(current_bound_clerk_id)
+    if bound is None:
+        return actor
+    if bound != actor:
+        raise AttemptForbiddenError(
+            f"You are not the {role_label} for this challenge."
+        )
+    return actor
+
+
 @dataclass
 class ChallengeRecord:
     id: str
@@ -38,6 +68,7 @@ class ChallengeRecord:
     opponent_clerk_user_id: str | None = None
     status: str = "pending"
     expires_at: datetime | None = None
+    completed_at: datetime | None = None
 
     def to_out(self) -> ChallengeOut:
         return ChallengeOut(
@@ -58,12 +89,14 @@ class ChallengeRecord:
 
 def _sync_rec_status(rec: ChallengeRecord) -> None:
     st = (rec.status or "pending").lower()
-    if st in ("cancelled", "expired"):
+    if st in ("cancelled", "expired", "declined", "proposed"):
         return
     a = rec.challenger_pushups is not None
     b = rec.opponent_pushups is not None
     if a and b:
         rec.status = "completed"
+        if rec.completed_at is None:
+            rec.completed_at = datetime.now(timezone.utc)
     elif a or b:
         rec.status = "active"
     else:
@@ -81,12 +114,22 @@ class ChallengeRepositoryProtocol(Protocol):
 
     def all_records(self) -> list[ChallengeRecord]: ...
 
+    def clerk_pair_challenge_blocked(
+        self, challenger_clerk_user_id: str, opponent_clerk_user_id: str
+    ) -> bool:
+        """True if both users exist locally and either direction has a challenge block."""
+        ...
+
+    def list_for_clerk_user(self, clerk_user_id: str) -> list[ChallengeRecord]: ...
+
     def apply_attempt(
         self,
         challenge_id: str,
         *,
         role: Literal["challenger", "opponent"],
         pushup_count: int,
+        actor_clerk_user_id: str,
+        video_s3_key: str | None = None,
     ) -> ChallengeRecord: ...
 
 
@@ -121,7 +164,7 @@ class ChallengeRepository:
             opponent_email=_norm_email(body.opponentEmail),
             challenger_clerk_user_id=init,
             opponent_clerk_user_id=_norm_clerk_id(body.opponentClerkUserId),
-            status="pending",
+            status="proposed",
             expires_at=expires_at,
         )
         self._by_id[cid] = rec
@@ -143,13 +186,36 @@ class ChallengeRepository:
     def all_records(self) -> list[ChallengeRecord]:
         return list(self._by_id.values())
 
+    def clerk_pair_challenge_blocked(
+        self, challenger_clerk_user_id: str, opponent_clerk_user_id: str
+    ) -> bool:
+        return False
+
+    def list_for_clerk_user(self, clerk_user_id: str) -> list[ChallengeRecord]:
+        c = (clerk_user_id or "").strip()
+        if not c:
+            return []
+        out: list[ChallengeRecord] = []
+        for rec in self.all_records():
+            if maybe_expire_record(rec):
+                self._by_id[rec.id] = rec
+            ch_id = (rec.challenger_clerk_user_id or "").strip()
+            op_id = (rec.opponent_clerk_user_id or "").strip()
+            if ch_id == c or op_id == c:
+                out.append(rec)
+        out.sort(key=lambda r: r.id, reverse=True)
+        return out
+
     def apply_attempt(
         self,
         challenge_id: str,
         *,
         role: Literal["challenger", "opponent"],
         pushup_count: int,
+        actor_clerk_user_id: str,
+        video_s3_key: str | None = None,
     ) -> ChallengeRecord:
+        _ = video_s3_key
         rec = self.get(challenge_id)
         if not rec:
             raise KeyError(challenge_id)
@@ -157,10 +223,20 @@ class ChallengeRepository:
         if reason:
             raise ValueError(reason)
         if role == "challenger":
+            rec.challenger_clerk_user_id = resolve_actor_clerk_for_role_slot(
+                rec.challenger_clerk_user_id,
+                actor_clerk_user_id,
+                "challenger",
+            )
             if rec.challenger_pushups is not None:
                 raise ValueError("Challenger has already submitted.")
             rec.challenger_pushups = pushup_count
         else:
+            rec.opponent_clerk_user_id = resolve_actor_clerk_for_role_slot(
+                rec.opponent_clerk_user_id,
+                actor_clerk_user_id,
+                "opponent",
+            )
             if rec.opponent_pushups is not None:
                 raise ValueError("Opponent has already submitted.")
             rec.opponent_pushups = pushup_count

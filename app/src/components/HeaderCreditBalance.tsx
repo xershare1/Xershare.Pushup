@@ -1,15 +1,17 @@
 import { useAuth } from '@clerk/react'
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 
 import { fetchCreditBalance } from '../api/billing'
+import { CREDIT_BALANCE_REFRESH_EVENT } from '../lib/creditBalanceRefresh'
 
 /**
- * Shows the signed-in user's credit balance in the header; refreshes on navigation and tab focus.
+ * Shows the signed-in user's credit balance in the header.
+ * Refetches when the user signs in, on tab focus (multi-tab), and when
+ * {@link requestCreditBalanceRefresh} fires (e.g. after returning from checkout).
  */
 export function HeaderCreditBalance() {
   const { isSignedIn, getToken } = useAuth()
-  const location = useLocation()
   const [balance, setBalance] = useState<number | null>(null)
   const [unavailable, setUnavailable] = useState(false)
 
@@ -30,8 +32,17 @@ export function HeaderCreditBalance() {
   }, [isSignedIn, getToken])
 
   useEffect(() => {
-    void load()
-  }, [load, location.pathname])
+    const id = window.setTimeout(() => {
+      void load()
+    }, 0)
+    return () => window.clearTimeout(id)
+  }, [load])
+
+  useEffect(() => {
+    const onRefresh = () => void load()
+    window.addEventListener(CREDIT_BALANCE_REFRESH_EVENT, onRefresh)
+    return () => window.removeEventListener(CREDIT_BALANCE_REFRESH_EVENT, onRefresh)
+  }, [load])
 
   useEffect(() => {
     const onVis = () => {

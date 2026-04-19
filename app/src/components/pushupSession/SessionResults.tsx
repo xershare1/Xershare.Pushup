@@ -1,16 +1,15 @@
-import { useAuth } from '@clerk/react'
+import { useAuth, useUser } from '@clerk/react'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, startTransition, type FC } from 'react'
 import type { CountUpProps } from 'react-countup'
 import CountUpImport from 'react-countup'
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 
+import { getLeaderboard } from '../../api/challenges'
 import { createSoloSession } from '../../api/solo'
 import { formatError } from '../../lib/formatError'
-import { getWorkoutFeedback } from '../../lib/workoutFeedback'
-
-/** Dedupe solo POST in React 18 StrictMode (effects run twice with the same key). */
-const soloSyncSubmittedKeys = new Set<string>()
+import { getSoloResultsFeedbackLine, getWorkoutFeedback } from '../../lib/workoutFeedback'
+import type { LeaderboardEntry } from '../../types/challenge'
 
 /** CJS/ESM interop: Vite may give the component or a module object with `.default`. */
 const CountUp: FC<CountUpProps> =
@@ -22,11 +21,42 @@ type Props = {
   reps: number
   onTryAgain: () => void
   onBack: () => void
-  /** Camera recording for this set (e.g. WebM); shown as download for algorithm lab testing */
   sessionRecording: Blob | null
-  /** Set when a set completes — triggers one solo API sync per key */
   soloSyncKey: string | null
   variant?: 'solo' | 'default'
+  /** Elapsed active time in seconds (solo). */
+  sessionDurationSec?: number
+  priorPersonalBest?: number | null
+  bestInLast7Days?: number | null
+}
+
+function formatMmSs(totalSec: number): string {
+  const m = Math.floor(totalSec / 60)
+  const s = totalSec % 60
+  return `${m}:${s.toString().padStart(2, '0')}`
+}
+
+function StarIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M12 2l2.9 6.26L22 9.27l-5 4.87L18.18 22 12 18.56 5.82 22 7 14.14l-5-4.87 6.1-.99L12 2z" />
+    </svg>
+  )
+}
+
+function heuristicRank(
+  leaderboard: LeaderboardEntry[] | null,
+  namesToTry: string[],
+): string | null {
+  if (!leaderboard?.length) return null
+  const tries = new Set(namesToTry.map((n) => n.trim().toLowerCase()).filter(Boolean))
+  for (const row of leaderboard) {
+    const dn = (row.displayName ?? '').trim().toLowerCase()
+    if (dn && tries.has(dn)) {
+      return `#${row.rank}`
+    }
+  }
+  return null
 }
 
 export function SessionResults({
@@ -36,19 +66,43 @@ export function SessionResults({
   sessionRecording,
   soloSyncKey,
   variant = 'default',
+  sessionDurationSec = 60,
+  priorPersonalBest = null,
+  bestInLast7Days = null,
 }: Props) {
   const { getToken } = useAuth()
-  const feedback = getWorkoutFeedback(reps)
+  const { user } = useUser()
+  const feedbackDefault = getWorkoutFeedback(reps)
+
+  const isNewPersonalBest =
+    (priorPersonalBest == null && reps > 0) ||
+    (priorPersonalBest != null && reps > priorPersonalBest)
+
+  /** Only when we have prior 7d data; avoids false "7d high" on empty window with older all-time PB */
+  const isBestInLast7Days =
+    !isNewPersonalBest &&
+    bestInLast7Days != null &&
+    reps > bestInLast7Days
+
+  const feedbackSolo = getSoloResultsFeedbackLine(reps, {
+    isNewPersonalBest,
+    isBestInLast7Days,
+  })
 
   const [recordingUrl, setRecordingUrl] = useState<string | null>(null)
   const [soloStatus, setSoloStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [soloError, setSoloError] = useState<string | null>(null)
   const [serverVideoUrl, setServerVideoUrl] = useState<string | null>(null)
+  const [rankLabel, setRankLabel] = useState<string | null>(null)
 
   const recordingRef = useRef<Blob | null>(sessionRecording)
+  const repsRef = useRef(reps)
+  const getTokenRef = useRef(getToken)
   useLayoutEffect(() => {
     recordingRef.current = sessionRecording
-  }, [sessionRecording])
+    repsRef.current = reps
+    getTokenRef.current = getToken
+  }, [sessionRecording, reps, getToken])
 
   const downloadFilename = useMemo(() => {
     if (!sessionRecording) return 'pushup-session.webm'
@@ -59,8 +113,6 @@ export function SessionResults({
 
   useEffect(() => {
     if (!soloSyncKey) return
-    if (soloSyncSubmittedKeys.has(soloSyncKey)) return
-    soloSyncSubmittedKeys.add(soloSyncKey)
 
     let cancelled = false
     startTransition(() => {
@@ -71,8 +123,8 @@ export function SessionResults({
 
     const id = window.setTimeout(async () => {
       try {
-        const result = await createSoloSession(getToken, {
-          reps,
+        const result = await createSoloSession(getTokenRef.current, {
+          reps: repsRef.current,
           video: recordingRef.current,
           sessionId: soloSyncKey,
         })
@@ -90,7 +142,30 @@ export function SessionResults({
       cancelled = true
       window.clearTimeout(id)
     }
-  }, [soloSyncKey, reps, getToken])
+  }, [soloSyncKey])
+
+  useEffect(() => {
+    if (variant !== 'solo') return
+    let cancelled = false
+    void (async () => {
+      try {
+        const board = await getLeaderboard()
+        if (cancelled) return
+        const names = [
+          user?.fullName ?? '',
+          [user?.firstName, user?.lastName].filter(Boolean).join(' '),
+          user?.firstName ?? '',
+          user?.username ?? '',
+        ]
+        setRankLabel(heuristicRank(board, names))
+      } catch {
+        if (!cancelled) setRankLabel(null)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [variant, user])
 
   useEffect(() => {
     if (!sessionRecording) {
@@ -103,6 +178,104 @@ export function SessionResults({
       URL.revokeObjectURL(u)
     }
   }, [sessionRecording])
+
+  const avgRepTime =
+    reps > 0 ? `${(sessionDurationSec / reps).toFixed(1)}s` : '—'
+
+  if (variant === 'solo') {
+    return (
+      <motion.div
+        className="pushup-results-solo"
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+      >
+        <div className="pushup-results-solo-card">
+          <p className="pushup-results-solo-eyebrow">Session complete</p>
+          <motion.p
+            className="pushup-results-solo-reps"
+            aria-live="polite"
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <CountUp start={0} end={reps} duration={0.85} preserveValue />
+          </motion.p>
+          <p className="pushup-results-solo-unit">reps</p>
+
+          {isNewPersonalBest ? (
+            <div className="pushup-results-solo-pb-badge">
+              <StarIcon />
+              New personal best!
+            </div>
+          ) : null}
+
+          <p className="pushup-results-solo-feedback">{feedbackSolo}</p>
+
+          <div className="pushup-results-solo-stats">
+            <div className="pushup-results-solo-stat">
+              <span className="pushup-results-solo-stat-label">Duration</span>
+              <span className="pushup-results-solo-stat-value">{formatMmSs(sessionDurationSec)}</span>
+            </div>
+            <div className="pushup-results-solo-stat">
+              <span className="pushup-results-solo-stat-label">Avg rep</span>
+              <span className="pushup-results-solo-stat-value">{avgRepTime}</span>
+            </div>
+            <div className="pushup-results-solo-stat">
+              <span className="pushup-results-solo-stat-label">Rank</span>
+              <span className="pushup-results-solo-stat-value">{rankLabel ?? '—'}</span>
+            </div>
+          </div>
+
+          {soloStatus === 'saving' ? (
+            <div className="pushup-results-solo-save pushup-results-solo-save--pending" role="status">
+              <span className="pushup-results-solo-save-dot" aria-hidden />
+              Saving your session…
+            </div>
+          ) : null}
+          {soloStatus === 'saved' ? (
+            <div className="pushup-results-solo-save" role="status">
+              <span className="pushup-results-solo-save-dot" aria-hidden />
+              Saved — reps and video added to your account
+            </div>
+          ) : null}
+          {soloStatus === 'error' && soloError ? (
+            <p className="pushup-results-solo-error" role="alert">
+              Could not save: {soloError}
+            </p>
+          ) : null}
+
+          <div className="pushup-results-solo-actions">
+            <button type="button" className="pushup-results-solo-btn-ghost" onClick={onTryAgain}>
+              Go again
+            </button>
+            <Link to="/challenge/create" className="pushup-results-solo-btn-primary">
+              Challenge someone →
+            </Link>
+          </div>
+
+          {import.meta.env.DEV && (recordingUrl || serverVideoUrl) ? (
+            <div className="pushup-results-solo-dev muted" style={{ marginTop: '1rem', fontSize: '0.8rem' }}>
+              {serverVideoUrl ? (
+                <a href={serverVideoUrl} target="_blank" rel="noopener noreferrer">
+                  Open cloud video
+                </a>
+              ) : null}
+              {recordingUrl ? (
+                <a href={recordingUrl} download={downloadFilename} style={{ marginLeft: '0.5rem' }}>
+                  Download recording
+                </a>
+              ) : null}
+            </div>
+          ) : null}
+
+          <button type="button" className="pushup-results-solo-exit" onClick={onBack}>
+            Back
+          </button>
+        </div>
+      </motion.div>
+    )
+  }
 
   return (
     <motion.div
@@ -123,7 +296,7 @@ export function SessionResults({
           <CountUp start={0} end={reps} duration={0.85} preserveValue />
         </motion.div>
         <p className="pushup-results-unit">pushups</p>
-        <p className="pushup-results-feedback">{feedback}</p>
+        <p className="pushup-results-feedback">{feedbackDefault}</p>
       </div>
 
       {soloStatus === 'saving' ? (
@@ -147,7 +320,7 @@ export function SessionResults({
           Try Again
         </button>
         <Link to="/challenge/create" className="btn btn-secondary pushup-results-cta-secondary">
-          {variant === 'solo' ? 'Turn this into a challenge' : 'Save your score'}
+          Save your score
         </Link>
         {serverVideoUrl ? (
           <a

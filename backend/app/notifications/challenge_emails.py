@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Literal
-
 from app.challenges.logic import lifecycle, outcome_from
 from app.challenges.repo_access import challenge_repo_context
 from app.clerk.backend_client import (
@@ -59,48 +57,6 @@ def notify_challenge_created(challenge_id: str) -> None:
     if get_database_url() and is_email_enabled():
         log_email_notification(
             type_="challenge_created",
-            recipient_email=email,
-            subject=subject,
-            challenge_id=challenge_id,
-            provider_message_id=mid,
-            error=None if mid else "no provider id",
-        )
-
-
-def notify_attempt_submitted(
-    challenge_id: str,
-    submitter_role: Literal["challenger", "opponent"],
-) -> None:
-    with challenge_repo_context() as repo:
-        rec = repo.get(challenge_id)
-    if not rec:
-        return
-    if submitter_role == "challenger":
-        clerk_id = rec.opponent_clerk_user_id
-        actor = rec.challenger_name
-        count = rec.challenger_pushups
-        role_label = "challenger"
-    else:
-        clerk_id = rec.challenger_clerk_user_id
-        actor = rec.opponent_name
-        count = rec.opponent_pushups
-        role_label = "opponent"
-    if count is None:
-        return
-    email = _recipient_email_for_clerk_user(clerk_id)
-    if not email:
-        return
-    html = T.attempt_submitted_html(
-        actor_name=actor,
-        pushups=count,
-        challenge_url=_challenge_url(challenge_id),
-        role_label=role_label,
-    )
-    subject = f"{actor} logged push-ups on Pushup Pros"
-    mid = send_html_email(to=[email], subject=subject, html=html)
-    if get_database_url() and is_email_enabled():
-        log_email_notification(
-            type_="attempt_submitted",
             recipient_email=email,
             subject=subject,
             challenge_id=challenge_id,

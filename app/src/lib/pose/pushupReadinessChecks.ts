@@ -9,6 +9,44 @@ export type ReadinessResult = {
   pushupHint: string | null
 }
 
+export type ChecklistItemStatus = 'pass' | 'fail' | 'waiting'
+
+export type SoloReadinessChecklist = {
+  fullBody: ChecklistItemStatus
+  lighting: ChecklistItemStatus
+  armsForm: ChecklistItemStatus
+  holdSteady: ChecklistItemStatus
+}
+
+/**
+ * Four-row solo readiness UI — heuristics from pose confidence and facing direction.
+ */
+export function getSoloReadinessChecklist(
+  pose: Pose | null,
+  poseScore: number,
+  _svc: PushupService,
+  pushupPosition: boolean,
+): SoloReadinessChecklist {
+  if (!pose || poseScore < 0.25) {
+    return {
+      fullBody: 'waiting',
+      lighting: 'waiting',
+      armsForm: 'waiting',
+      holdSteady: 'waiting',
+    }
+  }
+  const direction = PushupService.detectFacingDirection(pose)
+  const armsFail = direction === 'invalid'
+  const fullBody: ChecklistItemStatus =
+    armsFail ? 'fail' : poseScore >= 0.35 ? 'pass' : 'waiting'
+  const lighting: ChecklistItemStatus =
+    poseScore >= 0.48 ? 'pass' : poseScore >= 0.32 ? 'waiting' : 'fail'
+  const armsForm: ChecklistItemStatus = armsFail ? 'fail' : 'pass'
+  const holdSteady: ChecklistItemStatus = pushupPosition ? 'pass' : 'waiting'
+
+  return { fullBody, lighting, armsForm, holdSteady }
+}
+
 export function evaluateReadiness(
   pose: Pose,
   _videoWidth: number,
@@ -27,7 +65,7 @@ export function evaluateReadiness(
     const normalizedAngle =
       elbowAngle > 180 ? 360 - Math.abs(elbowAngle) : Math.abs(elbowAngle)
     const back = svc.getBackDegrees(body.knee, body.hip, body.shoulder)
-    const isBackStraight = back > 0.85 && back < 1
+    const isBackStraight = PushupService.isBackStraightEnough(back)
     const up = svc.isInUpPosition(normalizedAngle)
     const down = svc.isInDownPosition(pose, normalizedAngle)
     pushupPosition = isBackStraight && (up || down)

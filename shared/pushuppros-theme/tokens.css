@@ -14,4 +14,9 @@
   --danger-bg: #3f1d1d;
   --warn-bg: #3a3010;
   --warn: #fde68a;
+
+  /* Header / primary nav (shared app + marketing) */
+  --header-max-width: 1120px;
+  --header-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+  --nav-active-bg: rgba(255, 107, 53, 0.14);
 }

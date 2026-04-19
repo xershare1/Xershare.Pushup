@@ -15,7 +15,7 @@ def maybe_expire_record(rec: ChallengeRecord) -> bool:
     Returns True if the record was mutated.
     """
     st = (rec.status or "pending").lower()
-    if st in ("completed", "cancelled", "expired"):
+    if st in ("completed", "cancelled", "expired", "declined"):
         return False
     if rec.expires_at is None:
         return False
@@ -36,10 +36,19 @@ def submit_attempt_blocked_reason(rec: ChallengeRecord) -> str | None:
         return "Challenge was cancelled."
     if st == "expired":
         return "Challenge has expired."
+    if st == "proposed":
+        return "The opponent has not accepted this challenge yet."
+    if st == "declined":
+        return "This challenge was declined."
     return None
 
 
-def lifecycle(rec: ChallengeRecord) -> Literal["pending", "partial", "complete"]:
+def lifecycle(
+    rec: ChallengeRecord,
+) -> Literal["proposed", "pending", "partial", "complete"]:
+    st = (rec.status or "pending").lower()
+    if st == "proposed":
+        return "proposed"
     if rec.challenger_pushups is not None and rec.opponent_pushups is not None:
         return "complete"
     if rec.challenger_pushups is not None or rec.opponent_pushups is not None:

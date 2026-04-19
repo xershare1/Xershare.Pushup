@@ -4,30 +4,50 @@ from __future__ import annotations
 
 import logging
 import math
-from typing import Annotated
+from typing import Annotated, Literal, cast
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Header, HTTPException, UploadFile
+from starlette import status
 
+from app.billing.clerk_auth import require_clerk_user_id
 from app.challenges.logic import lifecycle, outcome_from
-from app.challenges.repository import ChallengeRepositoryProtocol, _norm_idempotency_key
+from app.challenges.repository import (
+    AttemptForbiddenError,
+    ChallengeRepositoryProtocol,
+    _norm_idempotency_key,
+)
 from app.challenges.schemas import (
     ChallengeOutcomeOut,
     ChallengeOut,
+    ChallengeVideoItemOut,
     CreateChallengeBody,
     CreateChallengeResponse,
     LeaderboardEntryOut,
-    SubmitAttemptBody,
 )
 from app.clerk.backend_client import (
     challenge_notifications_enabled,
     fetch_clerk_user,
     primary_email,
 )
-from app.config import get_challenge_max_pushups, get_clerk_secret_key, get_frontend_url
+from app.config import (
+    get_challenge_max_pushups,
+    get_challenge_max_video_bytes,
+    get_clerk_secret_key,
+    get_frontend_url,
+    get_video_ttl_hours,
+)
 from app.abuse.rate_limit import enforce_daily_challenge_limit
-from app.db.deps import get_challenge_repository
+from app.challenges.acceptance import accept_proposed, cancel_proposed, decline_proposed
+from app.db.deps import get_challenge_repository, get_db_or_none
+from app.db.models.challenge_attempt import ChallengeAttempt
+from app.solo.s3_storage import (
+    delete_s3_object,
+    presigned_video_url,
+    upload_challenge_attempt_video,
+)
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 from app.notifications.challenge_emails import (
-    notify_attempt_submitted,
     notify_challenge_created,
     notify_result_ready,
 )
@@ -36,6 +56,23 @@ from app.notifications.suppression import is_suppressed
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["challenges"])
+
+
+async def _read_upload_bytes(upload: UploadFile, max_bytes: int) -> bytes:
+    total = 0
+    parts: list[bytes] = []
+    while True:
+        chunk = await upload.read(1024 * 1024)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > max_bytes:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Video file exceeds maximum size ({max_bytes} bytes).",
+            )
+        parts.append(chunk)
+    return b"".join(parts)
 
 
 def _share_link(challenge_id: str) -> str:
@@ -68,6 +105,12 @@ def create_challenge(
     if not body.challengerName.strip() or not body.opponentName.strip():
         raise HTTPException(status_code=400, detail="Challenger and opponent names are required.")
 
+    if not (body.challengerClerkUserId or "").strip():
+        raise HTTPException(
+            status_code=400,
+            detail="challengerClerkUserId is required so your opponent can accept the challenge.",
+        )
+
     enforce_daily_challenge_limit(body.challengerClerkUserId)
 
     ikey = _norm_idempotency_key(idempotency_key)
@@ -93,6 +136,12 @@ def create_challenge(
         opponent_user = fetch_clerk_user(oid)
         if not opponent_user:
             raise HTTPException(status_code=404, detail="Opponent user not found.")
+
+    if repo.clerk_pair_challenge_blocked(ch_clerk, op_clerk):
+        raise HTTPException(
+            status_code=403,
+            detail="Challenge not allowed between these users (blocked).",
+        )
 
     rec = repo.create(body, idempotency_key=ikey)
     logger.info(
@@ -121,6 +170,66 @@ def create_challenge(
     )
 
 
+@router.get("/challenges/me", response_model=list[ChallengeOut])
+def get_my_challenges(
+    repo: Annotated[ChallengeRepositoryProtocol, Depends(get_challenge_repository)],
+    actor_clerk_user_id: str = Depends(require_clerk_user_id),
+) -> list[ChallengeOut]:
+    rows = repo.list_for_clerk_user(actor_clerk_user_id)
+    return [r.to_out() for r in rows]
+
+
+@router.post("/challenges/{challenge_id}/accept", response_model=ChallengeOut)
+def post_accept_challenge(
+    challenge_id: str,
+    repo: Annotated[ChallengeRepositoryProtocol, Depends(get_challenge_repository)],
+    actor_clerk_user_id: str = Depends(require_clerk_user_id),
+) -> ChallengeOut:
+    try:
+        rec = accept_proposed(repo, challenge_id, actor_clerk_user_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Challenge not found.") from None
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e)) from e
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return rec.to_out()
+
+
+@router.post("/challenges/{challenge_id}/decline", response_model=ChallengeOut)
+def post_decline_challenge(
+    challenge_id: str,
+    repo: Annotated[ChallengeRepositoryProtocol, Depends(get_challenge_repository)],
+    actor_clerk_user_id: str = Depends(require_clerk_user_id),
+) -> ChallengeOut:
+    try:
+        rec = decline_proposed(repo, challenge_id, actor_clerk_user_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Challenge not found.") from None
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e)) from e
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return rec.to_out()
+
+
+@router.post("/challenges/{challenge_id}/cancel", response_model=ChallengeOut)
+def post_cancel_challenge(
+    challenge_id: str,
+    repo: Annotated[ChallengeRepositoryProtocol, Depends(get_challenge_repository)],
+    actor_clerk_user_id: str = Depends(require_clerk_user_id),
+) -> ChallengeOut:
+    try:
+        rec = cancel_proposed(repo, challenge_id, actor_clerk_user_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Challenge not found.") from None
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e)) from e
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return rec.to_out()
+
+
 @router.get("/challenges/{challenge_id}", response_model=ChallengeOut)
 def get_challenge(
     challenge_id: str,
@@ -133,11 +242,15 @@ def get_challenge(
 
 
 @router.post("/challenges/{challenge_id}/attempts", response_model=ChallengeOut)
-def submit_attempt(
+async def submit_attempt(
     challenge_id: str,
-    body: SubmitAttemptBody,
     background_tasks: BackgroundTasks,
     repo: Annotated[ChallengeRepositoryProtocol, Depends(get_challenge_repository)],
+    actor_clerk_user_id: str = Depends(require_clerk_user_id),
+    participant_name: str = Form(...),
+    pushup_count: float = Form(...),
+    role: str = Form(...),
+    video: UploadFile | None = File(None),
 ) -> ChallengeOut:
     rec = repo.get(challenge_id)
     if not rec:
@@ -145,30 +258,67 @@ def submit_attempt(
 
     max_push = get_challenge_max_pushups()
     if (
-        not math.isfinite(body.pushupCount)
-        or body.pushupCount < 1
-        or body.pushupCount > max_push
+        not math.isfinite(pushup_count)
+        or pushup_count < 1
+        or pushup_count > max_push
     ):
         raise HTTPException(
             status_code=400,
             detail=f"Pushup count must be between 1 and {max_push}.",
         )
-    if not body.participantName.strip():
+    if not str(participant_name).strip():
         raise HTTPException(status_code=400, detail="Participant name is required.")
 
+    if role not in ("challenger", "opponent"):
+        raise HTTPException(status_code=400, detail="role must be challenger or opponent.")
+    role_lit: Literal["challenger", "opponent"] = cast(Literal["challenger", "opponent"], role)
+
     before = lifecycle(rec)
-    count = int(body.pushupCount)
+    count = int(pushup_count)
+
+    video_key: str | None = None
+    if video is not None and (video.filename or "").strip():
+        max_bytes = get_challenge_max_video_bytes()
+        try:
+            raw = await _read_upload_bytes(video, max_bytes)
+        except HTTPException:
+            raise
+        if len(raw) == 0:
+            raise HTTPException(status_code=400, detail="Empty video upload.")
+        try:
+            video_key = upload_challenge_attempt_video(
+                challenge_id=challenge_id,
+                clerk_user_id=actor_clerk_user_id,
+                role=role_lit,
+                body=raw,
+                content_type=video.content_type,
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
 
     try:
-        rec = repo.apply_attempt(challenge_id, role=body.role, pushup_count=count)
+        rec = repo.apply_attempt(
+            challenge_id,
+            role=role_lit,
+            pushup_count=count,
+            actor_clerk_user_id=actor_clerk_user_id,
+            video_s3_key=video_key,
+        )
     except KeyError:
+        if video_key:
+            delete_s3_object(video_key)
         raise HTTPException(status_code=404, detail="Challenge not found.") from None
+    except AttemptForbiddenError as e:
+        if video_key:
+            delete_s3_object(video_key)
+        raise HTTPException(status_code=403, detail=e.message) from e
     except ValueError as e:
+        if video_key:
+            delete_s3_object(video_key)
         raise HTTPException(status_code=400, detail=str(e)) from e
 
     after = lifecycle(rec)
 
-    background_tasks.add_task(notify_attempt_submitted, challenge_id, body.role)
     if before != "complete" and after == "complete":
         background_tasks.add_task(notify_result_ready, challenge_id)
 
@@ -176,12 +326,53 @@ def submit_attempt(
         "challenge_attempt_submitted",
         extra={
             "challenge_id": challenge_id,
-            "role": body.role,
+            "role": role_lit,
             "pushup_count": count,
+            "has_video": bool(video_key),
         },
     )
 
     return rec.to_out()
+
+
+@router.get("/challenges/me/videos", response_model=list[ChallengeVideoItemOut])
+def list_my_challenge_videos(
+    db: Annotated[Session | None, Depends(get_db_or_none)],
+    clerk_user_id: Annotated[str, Depends(require_clerk_user_id)],
+) -> list[ChallengeVideoItemOut]:
+    if db is None:
+        return []
+    rows = db.scalars(
+        select(ChallengeAttempt)
+        .where(
+            ChallengeAttempt.clerk_user_id == clerk_user_id,
+            ChallengeAttempt.video_s3_key.isnot(None),
+        )
+        .order_by(ChallengeAttempt.submitted_at.desc())
+    ).all()
+    ttl = int(get_video_ttl_hours() * 3600 * 2)
+    out: list[ChallengeVideoItemOut] = []
+    for att in rows:
+        key = (att.video_s3_key or "").strip()
+        if not key:
+            continue
+        if att.participant_role not in ("challenger", "opponent"):
+            continue
+        role_o: Literal["challenger", "opponent"] = cast(
+            Literal["challenger", "opponent"],
+            att.participant_role,
+        )
+        url = presigned_video_url(key, expires_seconds=ttl) or None
+        out.append(
+            ChallengeVideoItemOut(
+                challengeId=att.challenge_id,
+                role=role_o,
+                pushupCount=att.pushup_count,
+                submittedAt=att.submitted_at,
+                videoUrl=url,
+            )
+        )
+    return out
 
 
 @router.get("/challenges/{challenge_id}/result", response_model=ChallengeOutcomeOut)
