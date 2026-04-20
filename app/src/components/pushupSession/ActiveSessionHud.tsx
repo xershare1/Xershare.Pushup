@@ -6,9 +6,66 @@ type Props = {
   remainingSec: number
   motion01: number
   onStop: () => void
+  variant?: 'solo' | 'default'
+  /** Prior best reps (solo HUD line). */
+  personalBest: number | null
 }
 
-export function ActiveSessionHud({ reps, remainingSec, motion01, onStop }: Props) {
+function formatTimeLeft(sec: number): string {
+  const m = Math.floor(sec / 60)
+  const s = sec % 60
+  return `${m}:${s.toString().padStart(2, '0')}`
+}
+
+export function ActiveSessionHud({
+  reps,
+  remainingSec,
+  motion01,
+  onStop,
+  variant = 'default',
+  personalBest,
+}: Props) {
+  if (variant === 'solo') {
+    const urgent = remainingSec < 15
+    return (
+      <div className="pushup-active-hud-solo">
+        <div className="pushup-hud-solo-top">
+          <div className="pushup-hud-solo-timer-card">
+            <p className="pushup-hud-solo-timer-label">Time left</p>
+            <p
+              className={`pushup-hud-solo-timer-value ${urgent ? 'pushup-hud-solo-timer-value--urgent' : ''}`}
+            >
+              {formatTimeLeft(remainingSec)}
+            </p>
+          </div>
+          <button type="button" className="pushup-hud-solo-stop" onClick={onStop}>
+            Stop
+          </button>
+        </div>
+        <div className="pushup-hud-solo-center">
+          <motion.p
+            className="pushup-hud-solo-reps"
+            key={reps}
+            initial={{ scale: 1.06 }}
+            animate={{ scale: 1 }}
+            transition={{ type: 'spring', stiffness: 500, damping: 22 }}
+          >
+            {reps}
+          </motion.p>
+          <p className="pushup-hud-solo-reps-label">reps</p>
+          <p className="pushup-hud-solo-pb">
+            Personal best:{' '}
+            <span className="pushup-hud-solo-pb-num">{personalBest != null ? personalBest : '—'}</span>
+          </p>
+        </div>
+        <div className="pushup-hud-solo-motion">
+          <p className="pushup-hud-solo-motion-label">Motion</p>
+          <MotionBar value01={motion01} thin />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <motion.div
       className="pushup-active-hud"

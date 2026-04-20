@@ -7,9 +7,14 @@ from typing import Literal
 import stripe
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from app.billing.clerk_auth import require_clerk_user_id
+from app.billing.user_service import get_or_create_user_by_clerk_id
 from app.config import build_bundles, get_frontend_url, get_stripe_secret_key
+from app.db.deps import get_db_required_session
+from app.db.models.credit_account import CreditAccount
 
 router = APIRouter()
 
@@ -23,6 +28,25 @@ class CreateCheckoutBody(BaseModel):
 
 class CreateCheckoutResponse(BaseModel):
     url: str
+
+
+class CreditBalanceOut(BaseModel):
+    balance: int
+
+
+@router.get("/balance", response_model=CreditBalanceOut)
+def get_credit_balance(
+    clerk_user_id: str = Depends(require_clerk_user_id),
+    db: Session = Depends(get_db_required_session),
+) -> CreditBalanceOut:
+    """Current credit balance for the authenticated user (0 if no account row yet)."""
+    user_uuid = get_or_create_user_by_clerk_id(db, clerk_user_id)
+    acct = db.scalars(
+        select(CreditAccount).where(CreditAccount.user_id == user_uuid)
+    ).first()
+    if acct is None:
+        return CreditBalanceOut(balance=0)
+    return CreditBalanceOut(balance=int(acct.balance))
 
 
 @router.post("/create-checkout-session", response_model=CreateCheckoutResponse)

@@ -159,6 +159,12 @@
   border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent);
 }
 
+.banner-success {
+  background: #1a2e22;
+  color: #86efac;
+  border: 1px solid color-mix(in srgb, #86efac 35%, transparent);
+}
+
 .muted {
   color: var(--muted);
 }

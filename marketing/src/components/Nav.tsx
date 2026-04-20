@@ -1,9 +1,16 @@
-import { useState } from 'react'
-import { Link, NavLink } from 'react-router-dom'
+import { startTransition, useEffect, useState } from 'react'
+import { Link, NavLink, useLocation } from 'react-router-dom'
 import { PushupsDropdown } from './PushupsDropdown'
 
 export function Nav() {
+  const { pathname } = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
+
+  useEffect(() => {
+    startTransition(() => {
+      setMenuOpen(false)
+    })
+  }, [pathname])
 
   return (
     <header className="header">

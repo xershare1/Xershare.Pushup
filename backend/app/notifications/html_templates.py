@@ -57,21 +57,6 @@ def challenge_created_html(
     return wrap_email(inner)
 
 
-def attempt_submitted_html(
-    *,
-    actor_name: str,
-    pushups: int,
-    challenge_url: str,
-    role_label: str,
-) -> str:
-    inner = f"""
-<p style="margin:0 0 12px;font-size:18px;font-weight:600;">Your opponent logged reps</p>
-<p style="margin:0;"><strong>{actor_name}</strong> ({role_label}) logged <strong>{pushups}</strong> push-ups.</p>
-<p style="margin:20px 0 0;">{button_href("View challenge", challenge_url)}</p>
-"""
-    return wrap_email(inner)
-
-
 def result_ready_html(
     *,
     challenger_name: str,

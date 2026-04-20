@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.post("/webhooks/stripe")
+@router.post("/api/v1/stripe/webhook")
 async def stripe_webhook(request: Request) -> dict[str, bool]:
     payload = await request.body()
     sig = request.headers.get("stripe-signature")
@@ -52,6 +52,7 @@ async def stripe_webhook(request: Request) -> dict[str, bool]:
             credits = 0
         session_id = obj.get("id") or ""
         fulfill_credits(
+            stripe_event_id=str(event.get("id") or ""),
             stripe_session_id=session_id,
             clerk_user_id=clerk_user_id if isinstance(clerk_user_id, str) else None,
             bundle_code=bundle_code if isinstance(bundle_code, str) else None,

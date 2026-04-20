@@ -84,9 +84,27 @@ def get_clerk_jwt_issuer() -> str:
     return s
 
 
+def get_clerk_jwt_leeway_seconds() -> int:
+    """
+    PyJWT ``leeway`` for ``iat`` / ``nbf`` / ``exp`` (clock skew vs Clerk).
+    Optional env ``CLERK_JWT_LEEWAY_SECONDS``; default 60; clamped 0..300.
+    """
+    raw = _env("CLERK_JWT_LEEWAY_SECONDS", "60") or "60"
+    try:
+        n = int(raw)
+    except ValueError:
+        n = 60
+    return max(0, min(n, 300))
+
+
 def get_clerk_secret_key() -> str | None:
     """Clerk Backend API (Bearer). Required for user lookup and public_metadata updates."""
     return _env("CLERK_SECRET_KEY")
+
+
+def get_clerk_webhook_secret() -> str | None:
+    """Svix signing secret for Clerk webhooks (Dashboard → Webhooks → Signing Secret)."""
+    return _env("CLERK_WEBHOOK_SECRET")
 
 
 def is_email_enabled() -> bool:
@@ -101,6 +119,84 @@ def get_resend_api_key() -> str | None:
 def get_email_from() -> str:
     # Resend test sender works without a verified domain; swap in production.
     return _env("EMAIL_FROM", "Pushup Pros <onboarding@resend.dev>")
+
+
+@lru_cache
+def get_database_url() -> str | None:
+    """Async/sync SQLAlchemy URL when persisting to Postgres (see Alembic env)."""
+    return _env("DATABASE_URL")
+
+
+def get_challenge_rate_limit_daily() -> int:
+    """Max challenges created per Clerk user per day when DATABASE_URL is set."""
+    raw = _env("CHALLENGE_RATE_LIMIT_DAILY", "100")
+    try:
+        return max(1, int(raw or "100"))
+    except (TypeError, ValueError):
+        return 100
+
+
+def get_challenge_max_pushups() -> int:
+    """Upper bound per attempt (validation). Default 500."""
+    raw = _env("CHALLENGE_MAX_PUSHUPS", "500")
+    try:
+        return max(1, min(100_000, int(raw or "500")))
+    except (TypeError, ValueError):
+        return 500
+
+
+def get_challenge_expiry_hours() -> int:
+    """Hours until an incomplete challenge expires. Default 168 (7 days)."""
+    raw = _env("CHALLENGE_EXPIRY_HOURS", "168")
+    try:
+        return max(1, min(24 * 365, int(raw or "168")))
+    except (TypeError, ValueError):
+        return 168
+
+
+def get_video_ttl_hours() -> int:
+    """Solo session video + row retention (TTL). Default 24 hours."""
+    raw = _env("VIDEO_TTL_HOURS", "24")
+    try:
+        return max(1, min(24 * 90, int(raw or "24")))
+    except (TypeError, ValueError):
+        return 24
+
+
+def get_aws_s3_bucket() -> str | None:
+    return _env("AWS_S3_BUCKET")
+
+
+def get_aws_region() -> str:
+    return _env("AWS_REGION", "us-east-1") or "us-east-1"
+
+
+def get_solo_max_video_bytes() -> int:
+    raw = _env("SOLO_MAX_VIDEO_BYTES", str(50 * 1024 * 1024))
+    try:
+        return max(1_000_000, min(500 * 1024 * 1024, int(raw or str(50 * 1024 * 1024))))
+    except (TypeError, ValueError):
+        return 50 * 1024 * 1024
+
+
+def get_challenge_max_video_bytes() -> int:
+    """Max upload size for challenge attempt video (submit only). Defaults to solo limit."""
+    raw = _env("CHALLENGE_MAX_VIDEO_BYTES", "")
+    if not (raw or "").strip():
+        return get_solo_max_video_bytes()
+    try:
+        return max(1_000_000, min(500 * 1024 * 1024, int(raw)))
+    except (TypeError, ValueError):
+        return get_solo_max_video_bytes()
+
+
+def get_solo_max_reps() -> int:
+    """Upper bound for solo rep count (client-side counting). Default 1M."""
+    raw = _env("SOLO_MAX_REPS", "1000000")
+    try:
+        return max(1, min(10_000_000, int(raw or "1000000")))
+    except (TypeError, ValueError):
+        return 1_000_000
 
 
 def build_bundles() -> dict[str, dict[str, str | int]]:

@@ -9,7 +9,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt import PyJWKClient
 
-from app.config import get_clerk_jwt_issuer, get_clerk_jwks_url
+from app.config import get_clerk_jwt_issuer, get_clerk_jwt_leeway_seconds, get_clerk_jwks_url
 
 logger = logging.getLogger(__name__)
 
@@ -33,9 +33,16 @@ def clerk_user_id_from_token(token: str) -> str:
             algorithms=["RS256"],
             issuer=get_clerk_jwt_issuer(),
             options={"verify_aud": False},
+            leeway=get_clerk_jwt_leeway_seconds(),
         )
     except jwt.PyJWTError as e:
-        logger.warning("Clerk JWT verification failed: %s", e)
+        logger.warning(
+            "Clerk JWT verification failed | error_type=%s | message=%s | issuer_config=%s",
+            type(e).__name__,
+            str(e),
+            get_clerk_jwt_issuer(),
+            exc_info=True,
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired session",

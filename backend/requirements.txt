@@ -5,3 +5,8 @@ stripe==11.6.0
 httpx==0.28.1
 PyJWT[crypto]==2.10.1
 resend==2.19.0
+sqlalchemy==2.0.36
+alembic==1.14.0
+psycopg[binary]==3.2.3
+boto3==1.35.90
+svix==1.44.0

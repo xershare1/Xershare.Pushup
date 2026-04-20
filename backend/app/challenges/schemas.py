@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel
@@ -30,6 +31,8 @@ class ChallengeOut(BaseModel):
     opponentEmail: str | None = None
     challengerClerkUserId: str | None = None
     opponentClerkUserId: str | None = None
+    status: str | None = None
+    expiresAt: datetime | None = None
 
 
 class CreateChallengeResponse(BaseModel):
@@ -42,6 +45,14 @@ class SubmitAttemptBody(BaseModel):
     participantName: str
     pushupCount: float
     role: Literal["challenger", "opponent"]
+
+
+class ChallengeVideoItemOut(BaseModel):
+    challengeId: str
+    role: Literal["challenger", "opponent"]
+    pushupCount: int
+    submittedAt: datetime
+    videoUrl: str | None = None
 
 
 class ChallengeOutcomeOut(BaseModel):
