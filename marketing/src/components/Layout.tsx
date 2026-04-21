@@ -1,4 +1,6 @@
 import type { ReactNode } from 'react'
+
+import { Footer } from './Footer'
 import { Nav } from './Nav'
 
 type LayoutProps = {
@@ -7,12 +9,10 @@ type LayoutProps = {
 
 export function Layout({ children }: LayoutProps) {
   return (
-    <div className="layout">
+    <div className="mkt-layout">
       <Nav />
-      <main className="main">{children}</main>
-      <footer className="footer">
-        <p className="footer-note">PushupPros — social pushup challenges</p>
-      </footer>
+      <main className="mkt-main">{children}</main>
+      <Footer />
     </div>
   )
 }

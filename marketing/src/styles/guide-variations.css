@@ -1,0 +1,346 @@
+/* Pushup variations guide — /guides/pushup-variations */
+
+@import './guide-shared.css';
+
+/* Competition alert — full width within main column */
+.gdg-var-alert {
+  background: rgba(255, 87, 34, 0.12);
+  border: 1px solid rgba(255, 87, 34, 0.35);
+  border-left: 4px solid #ff5722;
+  border-radius: 10px;
+  padding: 16px 18px;
+  margin-bottom: 28px;
+}
+
+.gdg-var-alert__title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+  margin: 0 0 6px;
+  letter-spacing: -0.2px;
+}
+
+.gdg-var-alert__text {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.65);
+  line-height: 1.55;
+  margin: 0;
+}
+
+.gdg-var-overview .gdg-hero {
+  margin-bottom: 8px;
+}
+
+/* Filter pills (separate from TOC pills) */
+.gdg-var-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.gdg-var-filters--scroll {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  margin-bottom: 16px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.gdg-var-filters--scroll::-webkit-scrollbar {
+  height: 4px;
+}
+
+.gdg-var-filters__btn {
+  flex-shrink: 0;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    border-color 0.15s,
+    background 0.15s;
+}
+
+.gdg-var-filters__btn:hover {
+  color: rgba(255, 255, 255, 0.8);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.gdg-var-filters__btn--active {
+  border-color: rgba(255, 87, 34, 0.45);
+  color: #ff5722;
+  background: rgba(255, 87, 34, 0.1);
+}
+
+.gdg-var-intro {
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.5);
+  line-height: 1.75;
+  margin: 0 0 28px;
+  max-width: 640px;
+}
+
+/* Accordion cards */
+.gdg-var-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 48px;
+}
+
+.gdg-var-card {
+  background: #161619;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  overflow: hidden;
+  scroll-margin-top: 96px;
+}
+
+.gdg-var-card--standard {
+  border-left: 3px solid #ff5722;
+}
+
+.gdg-var-card--hidden {
+  display: none;
+}
+
+.gdg-var-card__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 16px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  color: inherit;
+  transition: background 0.15s;
+}
+
+.gdg-var-card__header:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.gdg-var-card__header-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.gdg-var-card__title {
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: -0.3px;
+  margin: 0;
+  color: #fff;
+}
+
+.gdg-var-card__chev {
+  flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.35);
+  transition: transform 0.2s ease;
+}
+
+.gdg-var-card__chev--open {
+  transform: rotate(180deg);
+}
+
+.gdg-var-card__body {
+  padding: 0 16px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.gdg-var-card__body-inner {
+  padding-top: 16px;
+}
+
+.gdg-var-card--collapsed .gdg-var-card__body {
+  display: none;
+}
+
+.gdg-var-card--collapsed {
+  border-bottom: none;
+}
+
+/* Badges */
+.gdg-var-badge {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  padding: 4px 8px;
+  border-radius: 6px;
+  line-height: 1;
+}
+
+.gdg-var-badge--challenge {
+  background: rgba(255, 87, 34, 0.2);
+  border: 1px solid rgba(255, 87, 34, 0.45);
+  color: #ffab91;
+}
+
+.gdg-var-badge--beginner {
+  background: rgba(76, 175, 80, 0.12);
+  border: 1px solid rgba(76, 175, 80, 0.35);
+  color: #81c784;
+}
+
+.gdg-var-badge--intermediate {
+  background: rgba(33, 150, 243, 0.12);
+  border: 1px solid rgba(33, 150, 243, 0.35);
+  color: #64b5f6;
+}
+
+.gdg-var-badge--advanced {
+  background: rgba(244, 67, 54, 0.1);
+  border: 1px solid rgba(244, 67, 54, 0.35);
+  color: #e57373;
+}
+
+/* Illustration height in variation cards */
+.gdg-var-card .gdg-illus {
+  height: 140px;
+  margin-top: 0;
+}
+
+/* Stat grid */
+.gdg-var-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.gdg-var-stat {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.gdg-var-stat__label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: rgba(255, 255, 255, 0.35);
+  margin-bottom: 4px;
+}
+
+.gdg-var-stat__value {
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.88);
+  line-height: 1.35;
+}
+
+/* Muscle tags */
+.gdg-var-muscles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.gdg-var-muscle {
+  font-size: 12px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.gdg-var-muscle--primary {
+  background: rgba(255, 87, 34, 0.1);
+  border-color: rgba(255, 87, 34, 0.25);
+  color: #ffab91;
+}
+
+.gdg-var-muscle--secondary {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.45);
+}
+
+/* Comparison table */
+.gdg-var-compare {
+  margin-top: 8px;
+}
+
+.gdg-var-compare__wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background: #161619;
+}
+
+.gdg-var-table {
+  width: 100%;
+  min-width: 520px;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.gdg-var-table th,
+.gdg-var-table td {
+  padding: 12px 14px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.gdg-var-table th {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: rgba(255, 255, 255, 0.4);
+  font-weight: 500;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.gdg-var-table tr:last-child td {
+  border-bottom: none;
+}
+
+.gdg-var-table__row--standard td {
+  background: rgba(255, 87, 34, 0.08);
+}
+
+.gdg-var-table__muted {
+  color: rgba(255, 255, 255, 0.25);
+}
+
+.gdg-var-table__high {
+  color: #81c784;
+  font-weight: 500;
+}
+
+.gdg-var-table__check {
+  color: #81c784;
+  font-weight: 600;
+}
+
+@media (max-width: 767px) {
+  .gdg-var-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .gdg-var-filters {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 6px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .gdg-var-filters::-webkit-scrollbar {
+    height: 4px;
+  }
+}

@@ -9,7 +9,6 @@ import { SubmitResult } from '../pages/SubmitResult'
 import { ChallengeResult } from '../pages/ChallengeResult'
 import { Leaderboard } from '../pages/Leaderboard'
 import { PushupAlgorithmLab } from '../pages/PushupAlgorithmLab'
-import { PurchaseCredits } from '../pages/PurchaseCredits'
 import { PurchaseSuccess } from '../pages/PurchaseSuccess'
 import { PurchaseCancel } from '../pages/PurchaseCancel'
 import { ChallengeVideos } from '../pages/ChallengeVideos'
@@ -20,6 +19,7 @@ import { Friends } from '../pages/Friends'
 import { MyChallenges } from '../pages/MyChallenges'
 import { SoloSession } from '../pages/SoloSession'
 import { Dashboard } from '../pages/Dashboard'
+import { CreditsPage } from '../pages/CreditsPage'
 
 export function AppRoutes() {
   return (
@@ -127,11 +127,12 @@ export function AppRoutes() {
         <Route path="/leaderboard" element={<Leaderboard />} />
         <Route path="/purchase/success" element={<PurchaseSuccess />} />
         <Route path="/purchase/cancel" element={<PurchaseCancel />} />
+        <Route path="/purchase" element={<Navigate to="/credits" replace />} />
         <Route
-          path="/purchase"
+          path="/credits"
           element={
             <RequireSessionAuth>
-              <PurchaseCredits />
+              <CreditsPage />
             </RequireSessionAuth>
           }
         />

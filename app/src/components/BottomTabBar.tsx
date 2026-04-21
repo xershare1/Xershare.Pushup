@@ -125,7 +125,7 @@ export function BottomTabBar({ pendingChallengeCount }: { pendingChallengeCount:
       <Tab to="/my-challenges" label="Challenge" icon="challenge" badge={pendingChallengeCount} />
       <Tab to="/leaderboard" label="Ranks" icon="ranks" />
       <VideosTab />
-      <Tab to="/purchase" label="Profile" icon="profile" />
+      <Tab to="/credits" label="Profile" icon="profile" />
     </nav>
   )
 }
