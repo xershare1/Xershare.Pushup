@@ -373,7 +373,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div>
             <div className="app-shell__nav-section-title">Account</div>
             <NavItem
-              to="/purchase"
+              to="/credits"
               label="Credits"
               icon={
                 <Icon>
@@ -402,7 +402,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <div className="app-shell__user-rank">Global rank · coming soon</div>
             </div>
           </div>
-          <Link className="app-shell__credits-pill" to="/purchase" title="Credits">
+          <Link className="app-shell__credits-pill" to="/credits" title="Credits">
             <span className="app-shell__credits-label">Credits</span>
             {creditsUnavailable ? (
               <strong>—</strong>

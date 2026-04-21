@@ -1,0 +1,492 @@
+/* Credits / purchase — scoped under .credits-page */
+
+.credits-page {
+  max-width: min(100%, 56rem);
+  margin-left: auto;
+  margin-right: auto;
+  padding-bottom: 48px;
+}
+
+.credits-page__title {
+  margin: 0 0 20px;
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: -0.02em;
+}
+
+/* —— Balance banner —— */
+.credits-page__balance {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: #161619;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-bottom: 28px;
+}
+
+.credits-page__balance-icon-wrap {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(255, 87, 34, 0.12);
+  border: 1px solid rgba(255, 87, 34, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ff5722;
+}
+
+.credits-page__balance-mid {
+  flex: 1;
+  min-width: 0;
+}
+
+.credits-page__balance-label {
+  display: block;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.credits-page__balance-value {
+  font-size: 22px;
+  font-weight: 500;
+  color: #ff5722;
+  letter-spacing: -0.5px;
+  line-height: 1.2;
+}
+
+.credits-page__balance-hint {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.3);
+  margin-top: 2px;
+}
+
+.credits-page__balance-stripe {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.25);
+}
+
+/* —— Explainer cards —— */
+.credits-page__explain-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 28px;
+}
+
+.credits-page__explain-card {
+  background: #161619;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+  padding: 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.credits-page__explain-icon {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.credits-page__explain-icon--accent {
+  background: rgba(255, 87, 34, 0.1);
+  color: #ff5722;
+}
+
+.credits-page__explain-icon--muted {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.credits-page__explain-icon--success {
+  background: rgba(76, 175, 80, 0.1);
+  color: #4caf50;
+}
+
+.credits-page__explain-title {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.85);
+  margin-bottom: 2px;
+}
+
+.credits-page__explain-body {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* —— Section label —— */
+.credits-page__section-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: rgba(255, 255, 255, 0.3);
+  margin: 0 0 14px;
+}
+
+/* —— Pricing —— */
+.credits-page__pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.credits-page__pack-wrap {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.credits-page__pack {
+  position: relative;
+  background: #161619;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  color: inherit;
+  transition: border-color 0.15s ease;
+}
+
+button.credits-page__pack {
+  appearance: none;
+}
+
+.credits-page__pack:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.credits-page__pack--featured {
+  border-color: rgba(255, 87, 34, 0.4);
+  background: rgba(255, 87, 34, 0.04);
+}
+
+.credits-page__pack-badge {
+  position: absolute;
+  top: -1px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #ff5722;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  padding: 4px 12px;
+  border-radius: 0 0 8px 8px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.credits-page__pack-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0 0 16px;
+}
+
+.credits-page__pack--featured .credits-page__pack-name {
+  color: #fff;
+}
+
+.credits-page__pack-credits {
+  font-size: 36px;
+  font-weight: 500;
+  color: #fff;
+  letter-spacing: -1.5px;
+  line-height: 1;
+  margin: 0;
+}
+
+.credits-page__pack-credits-label {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.4);
+  margin: 4px 0 0;
+}
+
+.credits-page__pack-price {
+  font-size: 22px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.9);
+  letter-spacing: -0.5px;
+  margin-top: 12px;
+}
+
+.credits-page__pack-rate {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.3);
+  margin-top: 4px;
+}
+
+.credits-page__pack--featured .credits-page__pack-rate {
+  color: #ff5722;
+  font-weight: 500;
+}
+
+.credits-page__pack-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.06);
+  margin: 14px 0;
+  border: 0;
+}
+
+.credits-page__pack-perks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.credits-page__pack-perk {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.3);
+  margin: 0;
+}
+
+.credits-page__pack-perk-dot {
+  flex-shrink: 0;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.25);
+  margin-top: 5px;
+}
+
+.credits-page__pack--featured .credits-page__pack-perk {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.credits-page__pack--featured .credits-page__pack-perk-dot {
+  background: rgba(255, 87, 34, 0.6);
+}
+
+.credits-page__pack-buy {
+  margin-top: 16px;
+  width: 100%;
+  border-radius: 9px;
+  padding: 13px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.7);
+  transition: background 0.15s ease, opacity 0.15s ease;
+}
+
+.credits-page__pack-buy:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.credits-page__pack--featured .credits-page__pack-buy {
+  background: #ff5722;
+  color: #fff;
+  border: none;
+}
+
+.credits-page__pack--featured .credits-page__pack-buy:hover:not(:disabled) {
+  opacity: 0.88;
+  background: #ff5722;
+}
+
+.credits-page__pack-buy:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.credits-page__pack-error {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: #ff8a65;
+  line-height: 1.4;
+}
+
+/* —— Skip link —— */
+.credits-page__skip {
+  display: block;
+  text-align: center;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.3);
+  margin-bottom: 28px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  font-family: inherit;
+  text-decoration: none;
+  width: 100%;
+}
+
+.credits-page__skip:hover {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* —— Trust row —— */
+.credits-page__trust {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 28px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+}
+
+.credits-page__trust-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.3);
+  min-width: 8rem;
+  justify-content: center;
+}
+
+/* —— History —— */
+.credits-page__history-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: rgba(255, 255, 255, 0.3);
+  margin: 0 0 10px;
+}
+
+.credits-page__history-panel {
+  background: #161619;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.credits-page__history-empty {
+  padding: 16px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.35);
+  margin: 0;
+}
+
+.credits-page__history-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.credits-page__history-row:last-child {
+  border-bottom: none;
+}
+
+.credits-page__history-icon {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.credits-page__history-icon--spend {
+  background: rgba(255, 87, 34, 0.1);
+  color: #ff5722;
+}
+
+.credits-page__history-icon--earn {
+  background: rgba(76, 175, 80, 0.1);
+  color: #4caf50;
+}
+
+.credits-page__history-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.credits-page__history-desc {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.credits-page__history-meta {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.3);
+  margin-top: 2px;
+}
+
+.credits-page__history-amount {
+  flex-shrink: 0;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.credits-page__history-amount--spend {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.credits-page__history-amount--earn {
+  color: #4caf50;
+}
+
+/* —— Responsive —— */
+@media (max-width: 1023px) {
+  .credits-page__explain-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .credits-page__pricing-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .credits-page__pack-wrap--featured {
+    order: -1;
+  }
+}
+
+@media (max-width: 600px) {
+  .credits-page__balance {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .credits-page__balance-stripe {
+    align-self: stretch;
+  }
+
+  .credits-page__trust-item {
+    flex: 1 1 40%;
+    min-width: 7rem;
+  }
+}

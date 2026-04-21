@@ -1,0 +1,605 @@
+/* About page — PushupPros (.abo-*) */
+
+.abo {
+  background: #0d0d0f;
+  color: #fff;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+.abo-hero {
+  padding: 88px 48px 80px;
+  max-width: 860px;
+  margin: 0 auto;
+  text-align: left;
+}
+
+.abo-hero__tag {
+  display: inline-block;
+  background: rgba(255, 87, 34, 0.1);
+  border: 1px solid rgba(255, 87, 34, 0.25);
+  color: #ff5722;
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 5px 14px;
+  border-radius: 20px;
+  margin-bottom: 20px;
+}
+
+.abo-hero__title {
+  font-size: 56px;
+  font-weight: 500;
+  letter-spacing: -2.5px;
+  line-height: 1.05;
+  margin: 0 0 20px;
+}
+
+.abo-hero__title em {
+  font-style: normal;
+  color: #ff5722;
+}
+
+.abo-hero__sub {
+  font-size: 20px;
+  color: rgba(255, 255, 255, 0.45);
+  line-height: 1.7;
+  max-width: 600px;
+  margin: 0;
+}
+
+.abo-hairline {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.06);
+  margin: 0 48px;
+}
+
+.abo-manifesto {
+  padding: 72px 48px;
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+.abo-pullquote {
+  font-size: 28px;
+  font-weight: 500;
+  color: #fff;
+  letter-spacing: -0.8px;
+  line-height: 1.4;
+  border-left: 3px solid #ff5722;
+  padding-left: 24px;
+  margin: 0 0 40px;
+}
+
+.abo-manifesto__body {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.abo-manifesto__p {
+  font-size: 17px;
+  color: rgba(255, 255, 255, 0.5);
+  line-height: 1.8;
+  max-width: 640px;
+  margin: 0;
+}
+
+.abo-manifesto__p strong {
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 500;
+}
+
+.abo-dual {
+  background: #080809;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 72px 48px;
+}
+
+.abo-dual__inner {
+  max-width: 1120px;
+  margin: 0 auto;
+}
+
+.abo-section__tag {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: #ff5722;
+  margin: 0 0 10px;
+}
+
+.abo-section__title {
+  font-size: 32px;
+  font-weight: 500;
+  letter-spacing: -1px;
+  margin: 0 0 12px;
+  line-height: 1.15;
+}
+
+.abo-section__sub {
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.45);
+  margin: 0;
+  line-height: 1.6;
+  max-width: 560px;
+}
+
+.abo-dual__grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-top: 40px;
+}
+
+.abo-mode-card {
+  background: #161619;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
+  padding: 28px;
+}
+
+.abo-mode-card--featured {
+  border-color: rgba(255, 87, 34, 0.3);
+  background: rgba(255, 87, 34, 0.04);
+}
+
+.abo-mode-card__icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 18px;
+}
+
+.abo-mode-card__icon--solo {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.abo-mode-card__icon--challenge {
+  background: rgba(255, 87, 34, 0.15);
+  color: #ff5722;
+}
+
+.abo-mode-card__title {
+  font-size: 20px;
+  font-weight: 500;
+  color: #fff;
+  margin: 0 0 8px;
+}
+
+.abo-mode-card__sub {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.45);
+  line-height: 1.6;
+  margin: 0 0 20px;
+}
+
+.abo-mode-card__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.abo-mode-card__list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.55);
+  line-height: 1.5;
+}
+
+.abo-mode-card__dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  margin-top: 6px;
+  flex-shrink: 0;
+}
+
+.abo-mode-card__dot--solo {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.abo-mode-card__dot--challenge {
+  background: rgba(255, 87, 34, 0.6);
+}
+
+.abo-why {
+  padding: 72px 48px;
+  background: #0d0d0f;
+}
+
+.abo-why__inner {
+  max-width: 1120px;
+  margin: 0 auto;
+}
+
+.abo-why__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 40px;
+}
+
+.abo-why-card {
+  background: #161619;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  padding: 24px;
+}
+
+.abo-why-card__num {
+  font-size: 40px;
+  font-weight: 500;
+  color: #ff5722;
+  letter-spacing: -1.5px;
+  line-height: 1;
+  margin-bottom: 10px;
+}
+
+.abo-why-card__title {
+  font-size: 16px;
+  font-weight: 500;
+  color: #fff;
+  margin: 0 0 8px;
+}
+
+.abo-why-card__body {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.45);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.abo-history {
+  background: #080809;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 72px 48px;
+}
+
+.abo-history__inner {
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+.abo-history__pull {
+  font-size: 24px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.85);
+  letter-spacing: -0.5px;
+  line-height: 1.5;
+  margin: 0 0 40px;
+}
+
+.abo-timeline {
+  display: flex;
+  flex-direction: column;
+}
+
+.abo-timeline__item {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  gap: 28px;
+  padding: 28px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.abo-timeline__year {
+  font-size: 13px;
+  font-weight: 500;
+  color: #ff5722;
+  padding-top: 2px;
+}
+
+.abo-timeline__title {
+  font-size: 15px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.85);
+  margin: 0 0 5px;
+}
+
+.abo-timeline__body {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.45);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.abo-vision {
+  padding: 72px 48px;
+  background: #0d0d0f;
+}
+
+.abo-vision__inner {
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+.abo-vision__grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-top: 40px;
+}
+
+.abo-vision-card {
+  background: #161619;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  padding: 22px;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.abo-vision-card--soon {
+  opacity: 0.5;
+}
+
+.abo-vision-card__icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.abo-vision-card__icon--live {
+  background: rgba(255, 87, 34, 0.1);
+  color: #ff5722;
+}
+
+.abo-vision-card__icon--soon {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.abo-vision-card__label {
+  font-size: 11px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.abo-vision-card__label--live {
+  color: #ff5722;
+}
+
+.abo-vision-card__label--soon {
+  color: rgba(255, 255, 255, 0.25);
+}
+
+.abo-vision-card__title {
+  font-size: 15px;
+  font-weight: 500;
+  color: #fff;
+  margin: 0 0 5px;
+}
+
+.abo-vision-card__body {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.45);
+  line-height: 1.55;
+  margin: 0;
+}
+
+.abo-founder {
+  padding: 72px 48px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.abo-founder__inner {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.abo-founder__tag {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: #ff5722;
+  margin: 0 0 24px;
+}
+
+.abo-founder__quote {
+  font-size: 22px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.85);
+  line-height: 1.55;
+  letter-spacing: -0.3px;
+  font-style: italic;
+  margin: 0 0 28px;
+}
+
+.abo-founder__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.abo-founder__avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #ff5722;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.abo-founder__name {
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.abo-founder__role {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.35);
+  margin-top: 2px;
+}
+
+.abo-bottom-cta {
+  text-align: center;
+  padding: 80px 48px;
+  background: #080809;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.abo-bottom-cta__eyebrow {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.3);
+  letter-spacing: 1.5px;
+  margin-bottom: 16px;
+}
+
+.abo-bottom-cta__title {
+  font-size: 44px;
+  font-weight: 500;
+  letter-spacing: -1.8px;
+  line-height: 1.08;
+  margin: 0 0 16px;
+}
+
+.abo-bottom-cta__title strong {
+  font-weight: 500;
+  color: #ff5722;
+}
+
+.abo-bottom-cta__sub {
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.45);
+  margin: 0 auto 36px;
+  max-width: 480px;
+}
+
+.abo-bottom-cta__btns {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+}
+
+@media (max-width: 1023px) and (min-width: 768px) {
+  .abo-dual__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .abo-why__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .abo-hero {
+    padding: 48px 20px 48px;
+  }
+
+  .abo-hero__title {
+    font-size: 36px;
+    letter-spacing: -1.5px;
+  }
+
+  .abo-hero__sub {
+    font-size: 18px;
+  }
+
+  .abo-hairline {
+    margin: 0 20px;
+  }
+
+  .abo-manifesto {
+    padding: 48px 20px;
+  }
+
+  .abo-pullquote {
+    font-size: 22px;
+  }
+
+  .abo-manifesto__p {
+    font-size: 16px;
+  }
+
+  .abo-dual {
+    padding: 48px 20px;
+  }
+
+  .abo-dual__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .abo-section__title {
+    font-size: 26px;
+  }
+
+  .abo-why {
+    padding: 48px 20px;
+  }
+
+  .abo-why__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .abo-history {
+    padding: 48px 20px;
+  }
+
+  .abo-timeline__item {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 24px 0;
+  }
+
+  .abo-timeline__year {
+    padding-top: 0;
+  }
+
+  .abo-vision {
+    padding: 48px 20px;
+  }
+
+  .abo-vision__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .abo-founder {
+    padding: 48px 20px;
+  }
+
+  .abo-founder__quote {
+    font-size: 18px;
+  }
+
+  .abo-bottom-cta {
+    padding: 48px 20px;
+  }
+
+  .abo-bottom-cta__title {
+    font-size: 32px;
+    letter-spacing: -1px;
+  }
+
+  .abo-bottom-cta__btns {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .abo-bottom-cta__btns .mkt-btn-lg {
+    width: 100%;
+  }
+}

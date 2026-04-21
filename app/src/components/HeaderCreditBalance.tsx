@@ -75,7 +75,7 @@ export function HeaderCreditBalance() {
   return (
     <Link
       className="header-credits"
-      to="/purchase"
+      to="/credits"
       title="View credit packs"
       aria-label={`${balance} credits`}
     >

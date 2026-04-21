@@ -253,7 +253,7 @@ export function Dashboard() {
           <div className="dash__stat-label">Credits</div>
           <div className="dash__stat-value">{credits ?? '—'}</div>
           <div className="dash__stat-hint">
-            <Link to="/purchase" style={{ color: 'inherit' }}>
+            <Link to="/credits" style={{ color: 'inherit' }}>
               Buy more
             </Link>
           </div>

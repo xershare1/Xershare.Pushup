@@ -8,7 +8,7 @@ export function PurchaseCancel() {
         No charge was made. You can return to credit packs whenever you are ready.
       </p>
       <p className="lede">
-        <Link className="btn btn-primary" to="/purchase">
+        <Link className="btn btn-primary" to="/credits">
           View credit packs
         </Link>
       </p>

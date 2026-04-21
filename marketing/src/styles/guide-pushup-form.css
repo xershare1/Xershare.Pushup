@@ -1,0 +1,9 @@
+/* Pushup form guide — /guides/pushup-form (form-only overrides) */
+
+@import './guide-shared.css';
+
+#pre-set-checklist.gdg-section {
+  border-bottom: none;
+  margin-bottom: 32px;
+  padding-bottom: 0;
+}
