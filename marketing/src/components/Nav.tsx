@@ -1,14 +1,15 @@
 import { startTransition, useEffect, useState } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
 
-import { APP_OPEN_URL, APP_SIGN_IN_URL } from '../constants'
+import { APP_SIGN_IN_URL, APP_SIGN_UP_URL } from '../constants'
 import { RESOURCE_GUIDES, RESOURCE_LEARN } from '../resources-links'
 
 import { ResourcesDropdown } from './ResourcesDropdown'
 
 export function Nav() {
   const { pathname } = useLocation()
-  const resourcesActive = pathname.startsWith('/pushups') || pathname.startsWith('/guides')
+  const resourcesActive =
+    pathname.startsWith('/pushups') || pathname.startsWith('/guides') || pathname.startsWith('/learn')
   const [menuOpen, setMenuOpen] = useState(false)
 
   useEffect(() => {
@@ -64,8 +65,8 @@ export function Nav() {
             <a className="mkt-nav__login" href={APP_SIGN_IN_URL}>
               Log in
             </a>
-            <a className="mkt-nav__open-app" href={APP_OPEN_URL}>
-              Open app →
+            <a className="mkt-nav__open-app" href={APP_SIGN_UP_URL}>
+              Sign up
             </a>
           </div>
         </div>
@@ -131,8 +132,8 @@ export function Nav() {
         </nav>
 
         <div className="mkt-nav__mobile-ctas">
-          <a className="mkt-nav__mobile-open" href={APP_OPEN_URL} onClick={close}>
-            Open app →
+          <a className="mkt-nav__mobile-open" href={APP_SIGN_UP_URL} onClick={close}>
+            Sign up
           </a>
           <a className="mkt-nav__mobile-login" href={APP_SIGN_IN_URL} onClick={close}>
             Log in

@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { createChallenge } from '../api/challenges'
 import { fetchFriends, type FriendOut } from '../api/friends'
 import { lookupUserByDisplayName } from '../api/users'
+import { FriendPicker } from '../components/challenge/create/FriendPicker'
 import { GenerateChallengeLinkButton } from '../components/challenge/create/GenerateChallengeLinkButton'
 import { OpponentDisplayNameInput } from '../components/challenge/create/OpponentDisplayNameInput'
 import { SendChallengeInviteButton } from '../components/challenge/create/SendChallengeInviteButton'
@@ -206,21 +207,13 @@ export function CreateChallenge() {
               Challenge a friend
             </p>
             <div className="actions wrap" style={{ alignItems: 'flex-end' }}>
-              <label className="field" style={{ flex: '1 1 220px', marginBottom: 0 }}>
-                <span>Pick from your friends</span>
-                <select
-                  value={selectedFriendClerkId}
-                  onChange={(e) => setSelectedFriendClerkId(e.target.value)}
-                  disabled={busy}
-                >
-                  <option value="">— Select —</option>
-                  {friends.map((f) => (
-                    <option key={f.clerkUserId} value={f.clerkUserId}>
-                      {f.displayName ?? f.clerkUserId}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <FriendPicker
+                friends={friends}
+                value={selectedFriendClerkId}
+                onChange={setSelectedFriendClerkId}
+                disabled={busy && !loadingFriends}
+                loading={loadingFriends}
+              />
               <button
                 type="button"
                 className="btn btn-primary"

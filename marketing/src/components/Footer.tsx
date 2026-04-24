@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 
-import { APP_OPEN_URL, CONTACT_MAILTO } from '../constants'
+import { APP_SIGN_UP_URL, CONTACT_MAILTO } from '../constants'
 
 export function Footer() {
   return (
@@ -28,8 +28,8 @@ export function Footer() {
           <Link className="mkt-footer__col-link" to="/about">
             About
           </Link>
-          <a className="mkt-footer__col-link" href={APP_OPEN_URL}>
-            Open app
+          <a className="mkt-footer__col-link" href={APP_SIGN_UP_URL}>
+            Sign up
           </a>
         </div>
 
@@ -44,10 +44,10 @@ export function Footer() {
           <Link className="mkt-footer__col-link" to="/guides/training-tips">
             Training tips
           </Link>
-          <Link className="mkt-footer__col-link" to="/pushups/history">
+          <Link className="mkt-footer__col-link" to="/learn/history">
             History of the pushup
           </Link>
-          <Link className="mkt-footer__col-link" to="/pushups/records">
+          <Link className="mkt-footer__col-link" to="/learn/world-records">
             World records
           </Link>
         </div>

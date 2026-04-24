@@ -20,6 +20,8 @@ import { MyChallenges } from '../pages/MyChallenges'
 import { SoloSession } from '../pages/SoloSession'
 import { Dashboard } from '../pages/Dashboard'
 import { CreditsPage } from '../pages/CreditsPage'
+import { Admin } from '../pages/Admin'
+import { RequireAdmin } from '../components/auth/RequireAdmin'
 
 export function AppRoutes() {
   return (
@@ -133,6 +135,16 @@ export function AppRoutes() {
           element={
             <RequireSessionAuth>
               <CreditsPage />
+            </RequireSessionAuth>
+          }
+        />
+        <Route
+          path="/admin"
+          element={
+            <RequireSessionAuth>
+              <RequireAdmin>
+                <Admin />
+              </RequireAdmin>
             </RequireSessionAuth>
           }
         />

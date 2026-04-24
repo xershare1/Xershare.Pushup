@@ -40,6 +40,7 @@ from app.abuse.rate_limit import enforce_daily_challenge_limit
 from app.challenges.acceptance import accept_proposed, cancel_proposed, decline_proposed
 from app.db.deps import get_challenge_repository, get_db_or_none
 from app.db.models.challenge_attempt import ChallengeAttempt
+from app.db.models.user import User
 from app.solo.s3_storage import (
     delete_s3_object,
     presigned_video_url,
@@ -79,6 +80,37 @@ def _share_link(challenge_id: str) -> str:
     return f"{get_frontend_url()}/c/{challenge_id}?source=invite"
 
 
+def _resolve_opponent_email_for_challenge(
+    db: Session | None,
+    opponent_clerk_id: str,
+    opponent_clerk_json: dict | None,
+) -> str | None:
+    """
+    Prefer ``users.email`` for the opponent when using Postgres; otherwise use
+    Clerk ``primary_email`` (in-memory / missing local row).
+    """
+    if not opponent_clerk_id:
+        return None
+    resolved: str | None = None
+    if db is not None:
+        u = db.scalars(select(User).where(User.clerk_user_id == opponent_clerk_id)).first()
+        if u is None:
+            logger.warning(
+                "challenge_opponent_not_in_local_users",
+                extra={"opponent_clerk_user_id": opponent_clerk_id},
+            )
+        elif not (u.email and str(u.email).strip()):
+            logger.warning(
+                "challenge_opponent_email_missing_in_db",
+                extra={"opponent_clerk_user_id": opponent_clerk_id},
+            )
+        else:
+            resolved = str(u.email).strip()
+    if resolved is None and opponent_clerk_json is not None:
+        resolved = primary_email(opponent_clerk_json)
+    return resolved if resolved else None
+
+
 def _build_leaderboard(repo: ChallengeRepositoryProtocol) -> list[LeaderboardEntryOut]:
     scores: dict[str, int] = {}
     for r in repo.all_records():
@@ -100,6 +132,7 @@ def create_challenge(
     body: CreateChallengeBody,
     background_tasks: BackgroundTasks,
     repo: Annotated[ChallengeRepositoryProtocol, Depends(get_challenge_repository)],
+    db: Annotated[Session | None, Depends(get_db_or_none)],
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> CreateChallengeResponse:
     if not body.challengerName.strip() or not body.opponentName.strip():
@@ -143,7 +176,12 @@ def create_challenge(
             detail="Challenge not allowed between these users (blocked).",
         )
 
-    rec = repo.create(body, idempotency_key=ikey)
+    resolved_opp = _resolve_opponent_email_for_challenge(db, oid, opponent_user)
+    rec = repo.create(
+        body,
+        idempotency_key=ikey,
+        resolved_opponent_email=resolved_opp,
+    )
     logger.info(
         "challenge_created",
         extra={
@@ -155,13 +193,25 @@ def create_challenge(
     notification_sent = False
     if opponent_user is not None:
         em = primary_email(opponent_user)
-        if (
-            em
+        can_send = (
+            bool(em)
             and challenge_notifications_enabled(opponent_user)
             and not is_suppressed(em)
-        ):
+        )
+        if can_send:
             notification_sent = True
             background_tasks.add_task(notify_challenge_created, rec.id)
+        else:
+            if not em:
+                reason = "no_clerk_primary_email"
+            elif not challenge_notifications_enabled(opponent_user):
+                reason = "challenge_notifications_disabled"
+            else:
+                reason = "email_suppressed"
+            logger.warning(
+                "challenge_create_notification_not_sent",
+                extra={"opponent_clerk_user_id": oid, "reason": reason},
+            )
 
     return CreateChallengeResponse(
         challenge=rec.to_out(),

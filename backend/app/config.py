@@ -199,6 +199,18 @@ def get_solo_max_reps() -> int:
         return 1_000_000
 
 
+@lru_cache
+def get_admin_clerk_user_ids() -> frozenset[str]:
+    """
+    Comma-separated Clerk user ids (`user_...`) allowed to call /admin/* APIs.
+    When empty, no user has admin access (all receive 403).
+    """
+    raw = _env("ADMIN_CLERK_USER_IDS", "")
+    if not raw:
+        return frozenset()
+    return frozenset(p.strip() for p in raw.split(",") if p.strip())
+
+
 def build_bundles() -> dict[str, dict[str, str | int]]:
     """Maps bundle_code → price_id, credits, display name. Omits bundles with missing price env."""
     rows: list[tuple[str, str, int, str]] = [

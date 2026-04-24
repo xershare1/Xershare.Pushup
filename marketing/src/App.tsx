@@ -6,7 +6,7 @@ import { HowItWorks } from './pages/HowItWorks'
 import { Pricing } from './pages/Pricing'
 import { Privacy } from './pages/Privacy'
 import { Terms } from './pages/Terms'
-import { PushupsHistoryPage } from './pages/pushups/History'
+import { HistoryOfThePushupPage } from './pages/learn/HistoryOfThePushup'
 import { PushupFormGuidePage } from './pages/guides/PushupForm'
 import { PushupVariationsGuidePage } from './pages/guides/PushupVariations'
 import { TrainingTipsGuidePage } from './pages/guides/TrainingTips'
@@ -23,7 +23,10 @@ export default function App() {
         <Route path="/pricing" element={<Pricing />} />
         <Route path="/privacy" element={<Privacy />} />
         <Route path="/terms" element={<Terms />} />
-        <Route path="/pushups/history" element={<PushupsHistoryPage />} />
+        <Route path="/learn" element={<Navigate to="/learn/history" replace />} />
+        <Route path="/learn/history" element={<HistoryOfThePushupPage />} />
+        <Route path="/learn/world-records" element={<PushupsRecordsPage />} />
+        <Route path="/pushups/history" element={<Navigate to="/learn/history" replace />} />
         <Route path="/pushups/variations" element={<Navigate to="/guides/pushup-variations" replace />} />
         <Route path="/guides" element={<Navigate to="/guides/pushup-form" replace />} />
         <Route path="/guides/pushup-form" element={<PushupFormGuidePage />} />
@@ -31,7 +34,7 @@ export default function App() {
         <Route path="/guides/training-tips" element={<TrainingTipsGuidePage />} />
         <Route path="/pushups/form" element={<Navigate to="/guides/pushup-form" replace />} />
         <Route path="/pushups/training" element={<Navigate to="/guides/training-tips" replace />} />
-        <Route path="/pushups/records" element={<PushupsRecordsPage />} />
+        <Route path="/pushups/records" element={<Navigate to="/learn/world-records" replace />} />
       </Routes>
     </Layout>
   )

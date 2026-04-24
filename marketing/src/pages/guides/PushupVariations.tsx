@@ -292,8 +292,8 @@ function MoreGuidesCard() {
   const links = [
     { to: '/guides/pushup-form', label: 'Pushup form' },
     { to: '/guides/training-tips', label: 'Training tips' },
-    { to: '/pushups/history', label: 'History of the pushup' },
-    { to: '/pushups/records', label: 'World records' },
+    { to: '/learn/history', label: 'History of the pushup' },
+    { to: '/learn/world-records', label: 'World records' },
   ]
   return (
     <div className="gdg-card">

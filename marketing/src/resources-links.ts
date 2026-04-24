@@ -33,13 +33,13 @@ export const RESOURCE_GUIDES: ResourceLinkItem[] = [
 
 export const RESOURCE_LEARN: ResourceLinkItem[] = [
   {
-    to: '/pushups/history',
+    to: '/learn/history',
     title: 'History of the pushup',
     sub: 'From ancient training to AI rep counting',
     iconVariant: 'muted',
   },
   {
-    to: '/pushups/records',
+    to: '/learn/world-records',
     title: 'World records',
     sub: 'How does your best stack up?',
     iconVariant: 'muted',

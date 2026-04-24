@@ -71,6 +71,8 @@ def _history_description(
         label = _BUNDLE_PURCHASE_LABEL.get(payment.bundle_code)
         if label:
             return f"Purchased {label} pack"
+    if txn.type == "admin_adj":
+        return "Admin account adjustment"
     if txn.type == "purchase":
         return "Purchased credits"
     if txn.delta < 0:

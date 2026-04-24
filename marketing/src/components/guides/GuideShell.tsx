@@ -3,9 +3,15 @@ import { Link } from 'react-router-dom'
 
 export type GuideTocItem = { id: string; label: string }
 
+const DEFAULT_MID = { label: 'Guides', to: '/guides' as const }
+const DEFAULT_MOBILE = { label: 'Guides', to: '/guides' as const }
+
 export type GuideShellProps = {
   breadcrumbCurrent: string
-  mobileBackLabel?: string
+  /** Second segment (e.g. Guides or Learn). Defaults to Guides → /guides. */
+  breadcrumbMid?: { label: string; to: string }
+  /** Mobile-only back row: “← {label}” linking to `to`. Defaults to Guides → /guides. */
+  mobileBack?: { label: string; to: string }
   tocItems: GuideTocItem[]
   activeTocId: string
   onTocNavigate: (id: string) => void
@@ -18,7 +24,8 @@ export type GuideShellProps = {
 
 export function GuideShell({
   breadcrumbCurrent,
-  mobileBackLabel = 'Guides',
+  breadcrumbMid = DEFAULT_MID,
+  mobileBack = DEFAULT_MOBILE,
   tocItems,
   activeTocId,
   onTocNavigate,
@@ -35,7 +42,7 @@ export function GuideShell({
           <span className="gdg-crumb__sep" aria-hidden>
             ›
           </span>
-          <Link to="/guides">Guides</Link>
+          <Link to={breadcrumbMid.to}>{breadcrumbMid.label}</Link>
           <span className="gdg-crumb__sep" aria-hidden>
             ›
           </span>
@@ -44,7 +51,7 @@ export function GuideShell({
       </div>
 
       <div className="gdg-crumb gdg-crumb--mobile">
-        <Link to="/guides">← {mobileBackLabel}</Link>
+        <Link to={mobileBack.to}>← {mobileBack.label}</Link>
       </div>
 
       <div className="gdg-layout">

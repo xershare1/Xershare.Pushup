@@ -35,7 +35,7 @@ function mergeHeaders(
   return h
 }
 
-async function authedFetchOnce(
+export async function authedFetchOnce(
   getToken: ClerkGetToken,
   path: string,
   init: RequestInit | undefined,

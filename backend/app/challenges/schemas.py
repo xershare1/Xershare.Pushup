@@ -12,7 +12,8 @@ class CreateChallengeBody(BaseModel):
     challengerName: str
     opponentName: str
     message: str | None = None
-    # Display-only labels; never used for automated email sends
+    # Optional; client often omits these. Server may persist challenger from body;
+    # for ``opponentClerkUserId`` challenges, opponent may be filled from ``users.email``.
     challengerEmail: str | None = None
     opponentEmail: str | None = None
     # Member path: verified server-side via Clerk; emails go to Clerk primary email only

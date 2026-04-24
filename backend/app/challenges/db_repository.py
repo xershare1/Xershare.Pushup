@@ -84,7 +84,11 @@ class DbChallengeRepository:
         return is_pair_challenge_blocked(self.session, uid_a, uid_b)
 
     def create(
-        self, body: CreateChallengeBody, *, idempotency_key: str | None = None
+        self,
+        body: CreateChallengeBody,
+        *,
+        idempotency_key: str | None = None,
+        resolved_opponent_email: str | None = None,
     ) -> ChallengeRecord:
         init = _norm_clerk_id(body.challengerClerkUserId)
         oid = (body.opponentClerkUserId or "").strip()
@@ -105,13 +109,14 @@ class DbChallengeRepository:
         cid = str(uuid.uuid4())
         hours = get_challenge_expiry_hours()
         expires_at = datetime.now(timezone.utc) + timedelta(hours=hours)
+        opponent_email = _norm_email(body.opponentEmail) or _norm_email(resolved_opponent_email)
         ch = Challenge(
             id=cid,
             challenger_name=body.challengerName.strip(),
             opponent_name=body.opponentName.strip(),
             message=body.message.strip() if body.message and body.message.strip() else None,
             challenger_email=_norm_email(body.challengerEmail),
-            opponent_email=_norm_email(body.opponentEmail),
+            opponent_email=opponent_email,
             challenger_clerk_user_id=_norm_clerk_id(body.challengerClerkUserId),
             opponent_clerk_user_id=_norm_clerk_id(body.opponentClerkUserId),
             status="proposed",
