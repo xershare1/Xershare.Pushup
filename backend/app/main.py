@@ -22,6 +22,7 @@ from app.solo.router import router as solo_router
 from app.users.router import router as users_router
 from app.webhooks.clerk import router as clerk_webhook_router
 from app.webhooks.stripe import router as stripe_webhook_router
+from app.admin.router import router as admin_router
 
 logging.basicConfig(level=logging.INFO)
 
@@ -72,6 +73,7 @@ app.include_router(friends_router)
 app.include_router(solo_router)
 app.include_router(clerk_webhook_router)
 app.include_router(stripe_webhook_router)
+app.include_router(admin_router, prefix="/admin", tags=["admin"])
 
 
 @app.get("/health")

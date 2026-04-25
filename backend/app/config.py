@@ -146,12 +146,12 @@ def get_challenge_max_pushups() -> int:
 
 
 def get_challenge_expiry_hours() -> int:
-    """Hours until an incomplete challenge expires. Default 168 (7 days)."""
-    raw = _env("CHALLENGE_EXPIRY_HOURS", "168")
+    """Hours until an incomplete (proposed) challenge expires. Default 48h."""
+    raw = _env("CHALLENGE_EXPIRY_HOURS", "48")
     try:
-        return max(1, min(24 * 365, int(raw or "168")))
+        return max(1, min(24 * 365, int(raw or "48")))
     except (TypeError, ValueError):
-        return 168
+        return 48
 
 
 def get_video_ttl_hours() -> int:
@@ -197,6 +197,18 @@ def get_solo_max_reps() -> int:
         return max(1, min(10_000_000, int(raw or "1000000")))
     except (TypeError, ValueError):
         return 1_000_000
+
+
+@lru_cache
+def get_admin_clerk_user_ids() -> frozenset[str]:
+    """
+    Comma-separated Clerk user ids (`user_...`) allowed to call /admin/* APIs.
+    When empty, no user has admin access (all receive 403).
+    """
+    raw = _env("ADMIN_CLERK_USER_IDS", "")
+    if not raw:
+        return frozenset()
+    return frozenset(p.strip() for p in raw.split(",") if p.strip())
 
 
 def build_bundles() -> dict[str, dict[str, str | int]]:

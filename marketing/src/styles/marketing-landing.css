@@ -216,6 +216,14 @@
   background: rgba(255, 255, 255, 0.05);
 }
 
+.mkt-res-dd__row--current {
+  background: rgba(255, 87, 34, 0.04);
+}
+
+.mkt-res-dd__row--current:hover {
+  background: rgba(255, 87, 34, 0.08);
+}
+
 .mkt-res-dd__icon {
   width: 28px;
   height: 28px;

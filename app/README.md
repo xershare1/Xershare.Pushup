@@ -37,11 +37,11 @@ Vite aliases `@mediapipe/pose` to a small shim because the published package is 
 | Path | Page |
 |------|------|
 | `/` | Home / entry |
-| `/challenge/start` | Record or upload challenge video (local only; camera needs HTTPS or localhost) |
-| `/challenge/create` | Create challenge |
+| `/challenge`, `/challenge/create` | Create challenge (wizard) |
+| `/challenge/start` | Redirects to `/challenge` (legacy URL) |
 | `/c/:challengeId` | Challenge detail (share target) |
 | `/c/:challengeId/submit` | Submit reps |
-| `/c/:challengeId/result` | Result |
+| `/c/:challengeId/result` | Redirects to `/c/:challengeId` (same screen) |
 | `/leaderboard` | Leaderboard (stub / optional API) |
 
 ## API layer

@@ -228,7 +228,7 @@ export function PushupAlgorithmLab() {
       <p className="muted" style={{ margin: 0, fontSize: '0.9rem' }}>
         <Link to="/">Home</Link>
         {' · '}
-        <Link to="/challenge/start">Challenge start</Link>
+        <Link to="/challenge">Start a challenge</Link>
       </p>
     </section>
   )

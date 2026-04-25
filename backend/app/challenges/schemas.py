@@ -12,12 +12,15 @@ class CreateChallengeBody(BaseModel):
     challengerName: str
     opponentName: str
     message: str | None = None
-    # Display-only labels; never used for automated email sends
+    # Optional; client often omits these. Server may persist challenger from body;
+    # for ``opponentClerkUserId`` challenges, opponent may be filled from ``users.email``.
     challengerEmail: str | None = None
     opponentEmail: str | None = None
     # Member path: verified server-side via Clerk; emails go to Clerk primary email only
     challengerClerkUserId: str | None = None
     opponentClerkUserId: str | None = None
+    # True = pay 2 credits at send; opponent accepts for free. Default: pay 1 (standard).
+    coverOpponentEntry: bool = False
 
 
 class ChallengeOut(BaseModel):
@@ -33,12 +36,14 @@ class ChallengeOut(BaseModel):
     opponentClerkUserId: str | None = None
     status: str | None = None
     expiresAt: datetime | None = None
+    gifted: bool = False
 
 
 class CreateChallengeResponse(BaseModel):
     challenge: ChallengeOut
     shareLink: str
     notificationSent: bool
+    balanceAfter: int | None = None
 
 
 class SubmitAttemptBody(BaseModel):

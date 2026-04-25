@@ -458,6 +458,55 @@ button.credits-page__pack {
   color: #4caf50;
 }
 
+.credits-page__history-row--refund {
+  background: rgba(76, 175, 80, 0.02);
+  border-color: rgba(76, 175, 80, 0.2);
+}
+
+.credits-page__history-badge {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 1px 7px;
+  border-radius: 6px;
+  vertical-align: middle;
+}
+
+.credits-page__history-badge--gifted {
+  background: rgba(76, 175, 80, 0.1);
+  border: 1px solid rgba(76, 175, 80, 0.2);
+  color: #4caf50;
+}
+
+.credits-page__history-badge--refund {
+  background: rgba(76, 175, 80, 0.1);
+  border: 1px solid rgba(76, 175, 80, 0.2);
+  color: #4caf50;
+}
+
+.credits-page__refund-policy {
+  margin-top: 24px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+}
+
+.credits-page__refund-policy-title {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #fff;
+}
+
+.credits-page__refund-policy-body {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.45);
+}
+
 /* —— Responsive —— */
 @media (max-width: 1023px) {
   .credits-page__explain-grid {

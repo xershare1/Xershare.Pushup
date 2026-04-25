@@ -68,7 +68,7 @@ export function ChallengeVideos() {
             challenge.
           </p>
           <div className="actions wrap">
-            <Link className="btn btn-primary" to="/challenge/start">
+            <Link className="btn btn-primary" to="/challenge">
               Start a challenge
             </Link>
             <Link className="btn btn-ghost" to="/my-challenges">

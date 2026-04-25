@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Literal, Protocol
 
+from app.challenges.exceptions import IdempotencyGiftMismatchError
 from app.challenges.logic import maybe_expire_record, submit_attempt_blocked_reason
 from app.challenges.schemas import ChallengeOut, CreateChallengeBody
 from app.config import get_challenge_expiry_hours
@@ -69,6 +70,7 @@ class ChallengeRecord:
     status: str = "pending"
     expires_at: datetime | None = None
     completed_at: datetime | None = None
+    gifted: bool = False
 
     def to_out(self) -> ChallengeOut:
         return ChallengeOut(
@@ -84,6 +86,7 @@ class ChallengeRecord:
             opponentClerkUserId=self.opponent_clerk_user_id,
             status=self.status,
             expiresAt=self.expires_at,
+            gifted=self.gifted,
         )
 
 
@@ -105,7 +108,11 @@ def _sync_rec_status(rec: ChallengeRecord) -> None:
 
 class ChallengeRepositoryProtocol(Protocol):
     def create(
-        self, body: CreateChallengeBody, *, idempotency_key: str | None = None
+        self,
+        body: CreateChallengeBody,
+        *,
+        idempotency_key: str | None = None,
+        resolved_opponent_email: str | None = None,
     ) -> ChallengeRecord: ...
 
     def get(self, challenge_id: str) -> ChallengeRecord | None: ...
@@ -141,31 +148,43 @@ class ChallengeRepository:
         self._idem: dict[tuple[str, str], str] = {}
 
     def create(
-        self, body: CreateChallengeBody, *, idempotency_key: str | None = None
+        self,
+        body: CreateChallengeBody,
+        *,
+        idempotency_key: str | None = None,
+        resolved_opponent_email: str | None = None,
     ) -> ChallengeRecord:
         init = _norm_clerk_id(body.challengerClerkUserId)
         ikey = _norm_idempotency_key(idempotency_key)
+        want_gifted = bool(body.coverOpponentEntry)
         if ikey and init:
             existing_id = self._idem.get((init, ikey))
             if existing_id:
                 existing = self.get(existing_id)
                 if existing:
+                    if bool(existing.gifted) != want_gifted:
+                        raise IdempotencyGiftMismatchError(
+                            "Idempotency-Key matches an existing challenge with a different "
+                            "gift (cover opponent) setting. Use a new Idempotency-Key."
+                        )
                     return existing
 
         cid = str(uuid.uuid4())
         hours = get_challenge_expiry_hours()
         expires_at = datetime.now(timezone.utc) + timedelta(hours=hours)
+        opp_email = _norm_email(body.opponentEmail) or _norm_email(resolved_opponent_email)
         rec = ChallengeRecord(
             id=cid,
             challenger_name=body.challengerName.strip(),
             opponent_name=body.opponentName.strip(),
             message=body.message.strip() if body.message and body.message.strip() else None,
             challenger_email=_norm_email(body.challengerEmail),
-            opponent_email=_norm_email(body.opponentEmail),
+            opponent_email=opp_email,
             challenger_clerk_user_id=init,
             opponent_clerk_user_id=_norm_clerk_id(body.opponentClerkUserId),
             status="proposed",
             expires_at=expires_at,
+            gifted=want_gifted,
         )
         self._by_id[cid] = rec
         if ikey and init:

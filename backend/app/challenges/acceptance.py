@@ -9,6 +9,24 @@ def _strip(s: str | None) -> str:
     return (s or "").strip()
 
 
+def can_opponent_accept(rec: ChallengeRecord, actor_clerk_user_id: str) -> bool:
+    """
+    True if the actor is allowed to accept as the opponent (same rules as
+    accept_proposed, without mutating the record). Used to gate credit charge.
+    """
+    st = (rec.status or "").lower()
+    if st != "proposed":
+        return False
+    ch = _strip(rec.challenger_clerk_user_id)
+    op = _strip(rec.opponent_clerk_user_id)
+    if not ch:
+        return False
+    actor = _strip(actor_clerk_user_id)
+    if op:
+        return actor == op
+    return actor != ch
+
+
 def accept_proposed(
     repo: ChallengeRepositoryProtocol,
     challenge_id: str,

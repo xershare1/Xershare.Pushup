@@ -10,6 +10,8 @@ export type CreditHistoryItem = {
   credits: number
   date: string
   amount_paid_usd: number | null
+  subline?: string | null
+  badge?: 'entry_gifted' | 'auto_refund' | null
 }
 
 const MOCK_CREDIT_BALANCE = 30

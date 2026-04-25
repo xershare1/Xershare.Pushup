@@ -264,7 +264,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               }
             />
             <NavItem
-              to="/challenge/start"
+              to="/challenge"
               label="Challenge"
               challengeStyleActive
               icon={

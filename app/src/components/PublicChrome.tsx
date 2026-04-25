@@ -42,7 +42,7 @@ export function PublicChrome({ children }: { children: ReactNode }) {
               Solo
             </NavLink>
             <NavLink
-              to="/challenge/start"
+              to="/challenge"
               className={({ isActive }) =>
                 `nav-link ${isActive || challengeNavActive ? 'nav-link-active' : ''}`
               }

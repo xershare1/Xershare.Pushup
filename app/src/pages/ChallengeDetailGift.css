@@ -1,0 +1,187 @@
+/* Gifted / free-accept challenge presentation on detail page */
+
+.challenge-gift-card {
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
+  overflow: hidden;
+  background: #161619;
+  margin-bottom: 1rem;
+}
+
+.challenge-gift-card__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px;
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.challenge-gift-card__head-l {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.challenge-gift-card__head-r {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.25);
+}
+
+.challenge-gift-card__body {
+  padding: 18px;
+}
+
+.challenge-gift-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.challenge-gift-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.challenge-gift-row__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.challenge-gift-row__name {
+  font-size: 15px;
+  font-weight: 500;
+  margin: 0;
+  color: #fff;
+}
+
+.challenge-gift-row__meta {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.4);
+  margin: 2px 0 0;
+}
+
+.challenge-gift-badge {
+  margin-left: auto;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(76, 175, 80, 0.1);
+  border: 1px solid rgba(76, 175, 80, 0.25);
+  color: #4caf50;
+  font-size: 11px;
+  padding: 3px 9px;
+  border-radius: 20px;
+}
+
+.challenge-gift-free {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  background: rgba(76, 175, 80, 0.08);
+  border: 1px solid rgba(76, 175, 80, 0.25);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+}
+
+.challenge-gift-free__ico {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(76, 175, 80, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #4caf50;
+}
+
+.challenge-gift-free__title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #4caf50;
+  margin: 0 0 4px;
+}
+
+.challenge-gift-free__sub {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.4);
+  margin: 0;
+}
+
+.challenge-gift-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.challenge-gift-actions .btn--accept-free {
+  flex: 2;
+  background: #4caf50;
+  border-color: #4caf50;
+  color: #fff;
+}
+
+.challenge-gift-actions .btn--accept-free:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+.challenge-gift-actions .btn--decline-ghost {
+  flex: 1;
+}
+
+.challenge-gift-accept-hero {
+  text-align: center;
+  padding: 1rem 0 1.5rem;
+}
+
+.challenge-gift-accept-hero__ico {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  margin: 0 auto 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(76, 175, 80, 0.12);
+  border: 1px solid rgba(76, 175, 80, 0.25);
+  color: #4caf50;
+}
+
+.challenge-gift-accept-hero h2 {
+  font-size: 1.25rem;
+  font-weight: 500;
+  margin: 0 0 0.5rem;
+}
+
+.challenge-gift-accept-hero p {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin: 0 0 1rem;
+}
+
+.challenge-gift-accept-hero .btn--record-free {
+  display: inline-flex;
+  width: 100%;
+  max-width: 360px;
+  justify-content: center;
+  background: #4caf50;
+  border-color: #4caf50;
+  color: #fff;
+}
+
+.challenge-std-accept-hint {
+  font-size: 0.88rem;
+  color: rgba(255, 255, 255, 0.45);
+  margin-bottom: 0.75rem;
+}

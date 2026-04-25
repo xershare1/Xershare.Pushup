@@ -20,7 +20,7 @@ export function PurchaseSuccess() {
         checkout; this page does not grant credits by itself.
       </p>
       <p className="lede">
-        <Link className="btn btn-primary" to="/challenge/start">
+        <Link className="btn btn-primary" to="/challenge">
           Start a challenge
         </Link>
       </p>

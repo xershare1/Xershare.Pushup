@@ -3,7 +3,6 @@ import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useAuth, useUser } from '@clerk/react'
 import { getChallenge, submitAttempt } from '../api/challenges'
 import type { Challenge, ParticipantRole } from '../types/challenge'
-import { getLifecycle } from '../lib/challengeLifecycle'
 import { formatError } from '../lib/formatError'
 import { PushupSession } from '../components/pushupSession/PushupSession'
 
@@ -100,14 +99,13 @@ export function SubmitResult() {
     setStep('submitting')
     const participantName = nameFromSession(user)
     try {
-      const updated = await submitAttempt(getToken, challengeId, {
+      await submitAttempt(getToken, challengeId, {
         participantName,
         pushupCount: pendingReps,
         role,
         video: pendingRecording && pendingRecording.size > 0 ? pendingRecording : undefined,
       })
-      const done = getLifecycle(updated) === 'complete'
-      navigate(done ? `/c/${challengeId}/result` : `/c/${challengeId}`)
+      navigate(`/c/${challengeId}`)
     } catch (err) {
       setSubmitError(formatError(err))
       setStep('confirm')
@@ -152,7 +150,7 @@ export function SubmitResult() {
   if (!challenge) return null
 
   if (challenge.challengerPushups !== null && challenge.opponentPushups !== null) {
-    return <Navigate to={`/c/${challenge.id}/result`} replace />
+    return <Navigate to={`/c/${challenge.id}`} replace />
   }
 
   if (step === 'session') {

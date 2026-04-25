@@ -64,7 +64,7 @@ export function SoloSession() {
         </button>
         <p className="solo-choose-foot">
           Want to compete?{' '}
-          <Link to="/challenge/start" className="solo-choose-link">
+          <Link to="/challenge" className="solo-choose-link">
             Start a challenge
           </Link>
           .
