@@ -332,8 +332,17 @@ export function CreditsPage() {
                 ? ` · ${moneyUsd.format(row.amount_paid_usd)}`
                 : ''
 
+            const refundRow = row.badge === 'auto_refund' && !isSpend
+            const sub = row.subline?.trim()
             return (
-              <div key={row.id} className="credits-page__history-row">
+              <div
+                key={row.id}
+                className={
+                  refundRow
+                    ? 'credits-page__history-row credits-page__history-row--refund'
+                    : 'credits-page__history-row'
+                }
+              >
                 <div
                   className={
                     isSpend
@@ -353,9 +362,22 @@ export function CreditsPage() {
                   )}
                 </div>
                 <div className="credits-page__history-body">
-                  <div className="credits-page__history-desc">{row.description}</div>
+                  <div className="credits-page__history-desc">
+                    {row.description}
+                    {row.badge === 'entry_gifted' ? (
+                      <span className="credits-page__history-badge credits-page__history-badge--gifted">
+                        Entry gifted
+                      </span>
+                    ) : null}
+                    {row.badge === 'auto_refund' ? (
+                      <span className="credits-page__history-badge credits-page__history-badge--refund">
+                        Auto-refunded
+                      </span>
+                    ) : null}
+                  </div>
                   <div className="credits-page__history-meta">
                     {metaDate}
+                    {sub ? ` · ${sub}` : ''}
                     {paid}
                   </div>
                 </div>
@@ -372,6 +394,14 @@ export function CreditsPage() {
             )
           })
         )}
+      </div>
+
+      <div className="credits-page__refund-policy">
+        <h3 className="credits-page__refund-policy-title">Refund policy</h3>
+        <p className="credits-page__refund-policy-body">
+          If a gifted challenge expires without a response, <strong>both credits are automatically refunded</strong> —
+          yours and the gifted entry. You&apos;re never charged for a challenge that doesn&apos;t happen.
+        </p>
       </div>
     </div>
   )

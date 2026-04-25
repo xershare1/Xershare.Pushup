@@ -47,12 +47,13 @@ export function mockCreateChallenge(body: CreateChallengeBody): CreateChallengeR
   challenge.challengerClerkUserId = body.challengerClerkUserId.trim()
   if (body.opponentClerkUserId?.trim())
     challenge.opponentClerkUserId = body.opponentClerkUserId.trim()
+  challenge.gifted = Boolean(body.coverOpponentEntry)
   memory.set(id, challenge)
   persist()
   const origin = typeof window !== 'undefined' ? window.location.origin : ''
   const shareLink = `${origin}/c/${id}?source=invite`
   const notificationSent = Boolean(body.opponentClerkUserId?.trim())
-  return { challenge, shareLink, notificationSent }
+  return { challenge, shareLink, notificationSent, balanceAfter: null }
 }
 
 export function mockGetChallenge(id: string): Challenge | undefined {

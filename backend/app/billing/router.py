@@ -16,6 +16,7 @@ from app.billing.clerk_auth import require_clerk_user_id
 from app.billing.user_service import get_or_create_user_by_clerk_id
 from app.config import build_bundles, get_frontend_url, get_stripe_secret_key
 from app.db.deps import get_db_required_session
+from app.db.models.challenge import Challenge
 from app.db.models.credit_account import CreditAccount
 from app.db.models.credit_transaction import CreditTransaction
 from app.db.models.payment_transaction import PaymentTransaction
@@ -57,6 +58,8 @@ class CreditHistoryItemOut(BaseModel):
     credits: int
     date: datetime
     amount_paid_usd: float | None = None
+    subline: str | None = None
+    badge: Literal["entry_gifted", "auto_refund"] | None = None
 
 
 class CreditHistoryOut(BaseModel):
@@ -92,6 +95,32 @@ def _history_amount_usd(
         if fallback is not None:
             return fallback
     return None
+
+
+def _challenge_history_copy(
+    txn: CreditTransaction,
+    ch: Challenge | None,
+) -> tuple[str, str | None, Literal["entry_gifted", "auto_refund"] | None]:
+    """Return (description, subline, badge) for challenge-linked ledger rows."""
+    rid = (txn.reference_id or "").strip()
+    name_opp = ch.opponent_name if ch else "opponent"
+    name_ch = ch.challenger_name if ch else "challenger"
+    gifted = bool(getattr(ch, "gifted", False)) if ch else False
+
+    if txn.type == "challenge_send":
+        desc = f"Challenge sent to {name_opp}"
+        sub = "Covered both entries" if gifted else "Standard entry"
+        badge: Literal["entry_gifted", "auto_refund"] | None = "entry_gifted" if gifted else None
+        return desc, sub, badge
+    if txn.type == "challenge_accept":
+        return f"Accepted challenge from {name_ch}", "Standard entry", None
+    if txn.type == "challenge_refund_decline":
+        return "Refund — opponent declined", "Opponent declined", "auto_refund"
+    if txn.type == "challenge_refund_cancel":
+        return "Refund — you cancelled the challenge", "Challenge cancelled before response", "auto_refund"
+    if txn.type == "challenge_refund_expire":
+        return "Refund — challenge expired", "Opponent didn't respond in time", "auto_refund"
+    return f"Challenge ({rid})", None, None
 
 
 @router.get("/balance", response_model=CreditBalanceOut)
@@ -146,6 +175,15 @@ def get_credit_history(
         ).all()
         payments = {p.id: p for p in rows}
 
+    ch_ids: set[str] = set()
+    for t in txns:
+        if t.reference_type == "challenge" and t.reference_id:
+            ch_ids.add(t.reference_id.strip())
+    challenges_by_id: dict[str, Challenge] = {}
+    if ch_ids:
+        ch_rows = db.scalars(select(Challenge).where(Challenge.id.in_(ch_ids))).all()
+        challenges_by_id = {c.id: c for c in ch_rows}
+
     items: list[CreditHistoryItemOut] = []
     for t in txns:
         pay: PaymentTransaction | None = None
@@ -161,14 +199,24 @@ def get_credit_history(
             _history_amount_usd(pay) if row_type == "earn" and pay is not None else None
         )
 
+        subline: str | None = None
+        badge: Literal["entry_gifted", "auto_refund"] | None = None
+        if t.reference_type == "challenge" and t.reference_id:
+            ch = challenges_by_id.get(t.reference_id.strip())
+            desc, subline, badge = _challenge_history_copy(t, ch)
+        else:
+            desc = _history_description(t, pay)
+
         items.append(
             CreditHistoryItemOut(
                 id=str(t.id),
                 type=row_type,
-                description=_history_description(t, pay),
+                description=desc,
                 credits=delta,
                 date=t.created_at,
                 amount_paid_usd=amount_usd,
+                subline=subline,
+                badge=badge,
             )
         )
 

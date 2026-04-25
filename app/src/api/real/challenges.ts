@@ -13,9 +13,12 @@ import { HttpError } from '../httpError'
 export async function createChallenge(
   body: CreateChallengeBody,
 ): Promise<CreateChallengeResponse> {
+  // Always send an explicit boolean so the field is never omitted from JSON
+  // (`JSON.stringify` drops `undefined`, which would make the server default to standard send).
+  const payload = { ...body, coverOpponentEntry: body.coverOpponentEntry === true }
   return jsonFetch<CreateChallengeResponse>('/challenges', {
     method: 'POST',
-    body: JSON.stringify(body),
+    body: JSON.stringify(payload),
   })
 }
 

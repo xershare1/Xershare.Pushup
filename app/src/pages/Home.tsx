@@ -19,7 +19,7 @@ export function Home() {
               <Link className="btn btn-primary" to="/solo">
                 Solo session
               </Link>
-              <Link className="btn btn-secondary" to="/challenge/start">
+              <Link className="btn btn-secondary" to="/challenge">
                 Start a challenge
               </Link>
               <Link className="btn btn-secondary" to="/leaderboard">

@@ -146,12 +146,12 @@ def get_challenge_max_pushups() -> int:
 
 
 def get_challenge_expiry_hours() -> int:
-    """Hours until an incomplete challenge expires. Default 168 (7 days)."""
-    raw = _env("CHALLENGE_EXPIRY_HOURS", "168")
+    """Hours until an incomplete (proposed) challenge expires. Default 48h."""
+    raw = _env("CHALLENGE_EXPIRY_HOURS", "48")
     try:
-        return max(1, min(24 * 365, int(raw or "168")))
+        return max(1, min(24 * 365, int(raw or "48")))
     except (TypeError, ValueError):
-        return 168
+        return 48
 
 
 def get_video_ttl_hours() -> int:

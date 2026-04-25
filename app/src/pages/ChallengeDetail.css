@@ -1,0 +1,483 @@
+/* Challenge detail / result — PushupPros brief (v1: no live, no rank blocks) */
+
+.cd-page {
+  --cd-bg: #0d0d0f;
+  --cd-card: #161619;
+  --cd-border: 1px solid rgba(255, 255, 255, 0.07);
+  --cd-muted: rgba(255, 255, 255, 0.4);
+  --cd-primary: #ff5722;
+  --cd-success: #4caf50;
+  --cd-amber: #ffc107;
+  --cd-loss: rgba(255, 90, 90, 0.8);
+
+  background: var(--cd-bg);
+  color: #fff;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  min-height: 100%;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.cd-page__inner {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 48px 24px 56px;
+  box-sizing: border-box;
+}
+
+@keyframes cd-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.cd-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 5px 12px;
+  border-radius: 20px;
+  margin-bottom: 28px;
+}
+
+.cd-tag--complete {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.cd-tag--pending {
+  background: rgba(255, 193, 7, 0.08);
+  border: 1px solid rgba(255, 193, 7, 0.2);
+  color: #ffc107;
+}
+
+.cd-tag--dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #ffc107;
+  animation: cd-pulse 1.2s infinite;
+}
+
+.cd-tag--proposed {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.45);
+}
+
+/* Arena */
+.cd-arena {
+  background: #161619;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+
+.cd-arena--win {
+  border-color: rgba(76, 175, 80, 0.2);
+}
+
+.cd-arena__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.cd-arena__head-l {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.3);
+  letter-spacing: 0.5px;
+}
+
+.cd-arena__head-r {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.cd-arena__body {
+  display: flex;
+  align-items: center;
+  padding: 28px 24px;
+}
+
+.cd-fighter {
+  flex: 1;
+  text-align: center;
+  min-width: 0;
+}
+
+.cd-fighter__av {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  margin: 0 auto 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.cd-fighter__name {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+.cd-you {
+  font-size: 10px;
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.4);
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-left: 4px;
+  font-weight: 400;
+}
+
+.cd-fighter__score {
+  font-size: 60px;
+  font-weight: 500;
+  letter-spacing: -2.5px;
+  line-height: 1;
+  color: #fff;
+}
+
+.cd-fighter__score--dim {
+  color: rgba(255, 255, 255, 0.2);
+}
+
+.cd-fighter__score--dash {
+  font-size: 36px;
+  color: rgba(255, 255, 255, 0.15);
+  letter-spacing: 0;
+}
+
+.cd-fighter__reps {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: rgba(255, 255, 255, 0.35);
+  margin-top: 4px;
+}
+
+.cd-fighter__sub {
+  font-size: 11px;
+  margin-top: 4px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.cd-fighter__sub--ok {
+  color: var(--cd-success);
+}
+
+.cd-fighter__sub--warn {
+  color: var(--cd-amber);
+}
+
+.cd-vs {
+  padding: 0 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.cd-vs__arrow {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.cd-vs__arrow--win {
+  color: var(--cd-success);
+}
+
+.cd-vs__arrow--lose {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.cd-vs__label {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.2);
+  letter-spacing: 2px;
+}
+
+.cd-progress-wrap {
+  padding: 0 20px 20px;
+}
+
+.cd-progress {
+  height: 5px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 3px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: row;
+  gap: 2px;
+  align-items: stretch;
+}
+
+.cd-progress__l,
+.cd-progress__r {
+  height: 100%;
+  border-radius: 2px;
+}
+
+.cd-progress__l {
+  background: var(--cd-primary);
+}
+
+.cd-progress__r {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.cd-progress__l--lose {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.cd-progress__r--lose {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.cd-progress-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+/* Banners */
+.cd-banner {
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-bottom: 14px;
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.cd-banner--win {
+  background: rgba(76, 175, 80, 0.08);
+  border: 1px solid rgba(76, 175, 80, 0.2);
+}
+
+.cd-banner--lose {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.cd-banner--tie {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.cd-banner__ico {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cd-banner__ico--win {
+  background: rgba(76, 175, 80, 0.2);
+  color: var(--cd-success);
+}
+
+.cd-banner__ico--lose {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.cd-banner__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.cd-banner__title {
+  font-size: 16px;
+  font-weight: 500;
+  margin: 0 0 4px;
+}
+
+.cd-banner__title--win {
+  color: var(--cd-success);
+}
+
+.cd-banner__title--lose {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.cd-banner__sub {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.45);
+  margin: 0;
+  line-height: 1.45;
+}
+
+.cd-banner__side {
+  font-size: 22px;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.cd-banner__side--win {
+  color: var(--cd-success);
+}
+
+.cd-banner__side--lose {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+/* Pending info card */
+.cd-info {
+  background: var(--cd-card);
+  border: var(--cd-border);
+  border-radius: 12px;
+  padding: 18px;
+  margin-bottom: 14px;
+}
+
+.cd-info__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 13px;
+}
+
+.cd-info__row:last-child {
+  border-bottom: 0;
+}
+
+.cd-info__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.cd-info__l {
+  color: rgba(255, 255, 255, 0.45);
+  flex: 1;
+}
+
+.cd-info__v {
+  font-weight: 500;
+}
+
+/* CTAs */
+.cd-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.cd-actions--stack-mobile {
+  flex-direction: row;
+}
+
+.cd-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  padding: 13px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  text-decoration: none;
+  font-family: inherit;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+.cd-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cd-btn--primary {
+  background: var(--cd-primary);
+  color: #fff;
+}
+
+.cd-btn--ghost {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.cd-actions .cd-btn--primary,
+.cd-actions .cd-btn--ghost {
+  flex: 1;
+  min-width: 0;
+}
+
+.cd-link-quiet {
+  display: block;
+  margin-top: 12px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.3);
+  text-decoration: none;
+}
+
+.cd-link-quiet:hover {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.cd-terminal {
+  background: var(--cd-card);
+  border: var(--cd-border);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 14px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+@media (max-width: 400px) {
+  .cd-fighter__score {
+    font-size: 48px;
+  }
+
+  .cd-arena__body {
+    padding: 20px 16px;
+  }
+
+  .cd-page__inner {
+    padding: 32px 16px 48px;
+  }
+
+  .cd-actions {
+    flex-direction: column;
+  }
+
+  .cd-actions .cd-btn--primary,
+  .cd-actions .cd-btn--ghost {
+    width: 100%;
+  }
+}

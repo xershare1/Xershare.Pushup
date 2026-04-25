@@ -1565,10 +1565,31 @@
   flex-wrap: wrap;
 }
 
+.my-challenges-page__card-name-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
 .my-challenges-page__card-name {
   font-size: 14px;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.88);
+}
+
+.my-challenges-page__entry-covered {
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(76, 175, 80, 0.1);
+  border: 1px solid rgba(76, 175, 80, 0.25);
+  color: #4caf50;
 }
 
 .my-challenges-page__card-role {

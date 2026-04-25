@@ -316,7 +316,7 @@ export function Stats() {
                   const theyWin = c.theirScore > c.yourScore
                   return (
                     <li key={c.challengeId}>
-                      <Link to={`/c/${c.challengeId}/result`} className="stats-page__log-row stats-page__chal-row">
+                      <Link to={`/c/${c.challengeId}`} className="stats-page__log-row stats-page__chal-row">
                         <span className="stats-page__chal-date">{formatChallengeDate(c.date)}</span>
                         <div className="stats-page__chal-op">
                           <div className="stats-page__chal-avatar" aria-hidden>

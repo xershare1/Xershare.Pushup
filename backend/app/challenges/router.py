@@ -10,6 +10,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Header, HTT
 from starlette import status
 
 from app.billing.clerk_auth import require_clerk_user_id
+from app.challenges.exceptions import IdempotencyGiftMismatchError
 from app.challenges.logic import lifecycle, outcome_from
 from app.challenges.repository import (
     AttemptForbiddenError,
@@ -37,7 +38,19 @@ from app.config import (
     get_video_ttl_hours,
 )
 from app.abuse.rate_limit import enforce_daily_challenge_limit
-from app.challenges.acceptance import accept_proposed, cancel_proposed, decline_proposed
+from app.billing.challenge_credits import (
+    balance_for_clerk,
+    charge_challenger_on_send,
+    charge_opponent_on_accept,
+    refund_challenger_proposed_terminal,
+)
+from app.challenges.acceptance import (
+    accept_proposed,
+    can_opponent_accept,
+    cancel_proposed,
+    decline_proposed,
+)
+from app.challenges.db_repository import DbChallengeRepository
 from app.db.deps import get_challenge_repository, get_db_or_none
 from app.db.models.challenge_attempt import ChallengeAttempt
 from app.db.models.user import User
@@ -177,11 +190,26 @@ def create_challenge(
         )
 
     resolved_opp = _resolve_opponent_email_for_challenge(db, oid, opponent_user)
-    rec = repo.create(
-        body,
-        idempotency_key=ikey,
-        resolved_opponent_email=resolved_opp,
-    )
+
+    if db is not None and isinstance(repo, DbChallengeRepository):
+        cost = 2 if bool(body.coverOpponentEntry) else 1
+        if balance_for_clerk(db, ch_clerk) < cost:
+            raise HTTPException(
+                status_code=400,
+                detail="Insufficient credits to send this challenge.",
+            )
+
+    try:
+        rec = repo.create(
+            body,
+            idempotency_key=ikey,
+            resolved_opponent_email=resolved_opp,
+        )
+    except IdempotencyGiftMismatchError as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(e),
+        ) from e
     logger.info(
         "challenge_created",
         extra={
@@ -213,10 +241,26 @@ def create_challenge(
                 extra={"opponent_clerk_user_id": oid, "reason": reason},
             )
 
+    balance_after: int | None = None
+    if db is not None and isinstance(repo, DbChallengeRepository):
+        gift_send = bool(body.coverOpponentEntry)
+        cost = 2 if gift_send else 1
+        try:
+            balance_after = charge_challenger_on_send(
+                db,
+                challenge_id=rec.id,
+                clerk_user_id=ch_clerk,
+                cost=cost,
+                gifted=gift_send,
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
+
     return CreateChallengeResponse(
         challenge=rec.to_out(),
         shareLink=link,
         notificationSent=notification_sent,
+        balanceAfter=balance_after,
     )
 
 
@@ -233,8 +277,24 @@ def get_my_challenges(
 def post_accept_challenge(
     challenge_id: str,
     repo: Annotated[ChallengeRepositoryProtocol, Depends(get_challenge_repository)],
+    db: Annotated[Session | None, Depends(get_db_or_none)],
     actor_clerk_user_id: str = Depends(require_clerk_user_id),
 ) -> ChallengeOut:
+    if db is not None and isinstance(repo, DbChallengeRepository):
+        rec0 = repo.get(challenge_id)
+        if not rec0:
+            raise HTTPException(status_code=404, detail="Challenge not found.")
+        if (rec0.status or "").lower() == "proposed" and not rec0.gifted and can_opponent_accept(
+            rec0, actor_clerk_user_id
+        ):
+            try:
+                charge_opponent_on_accept(
+                    db,
+                    challenge_id=challenge_id,
+                    opponent_clerk_user_id=actor_clerk_user_id,
+                )
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail=str(e)) from e
     try:
         rec = accept_proposed(repo, challenge_id, actor_clerk_user_id)
     except KeyError:
@@ -250,8 +310,15 @@ def post_accept_challenge(
 def post_decline_challenge(
     challenge_id: str,
     repo: Annotated[ChallengeRepositoryProtocol, Depends(get_challenge_repository)],
+    db: Annotated[Session | None, Depends(get_db_or_none)],
     actor_clerk_user_id: str = Depends(require_clerk_user_id),
 ) -> ChallengeOut:
+    rec0 = repo.get(challenge_id)
+    if not rec0:
+        raise HTTPException(status_code=404, detail="Challenge not found.")
+    prior = (rec0.status or "").lower() == "proposed"
+    gifted = rec0.gifted
+    chal = (rec0.challenger_clerk_user_id or "").strip()
     try:
         rec = decline_proposed(repo, challenge_id, actor_clerk_user_id)
     except KeyError:
@@ -260,6 +327,14 @@ def post_decline_challenge(
         raise HTTPException(status_code=403, detail=str(e)) from e
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+    if db is not None and isinstance(repo, DbChallengeRepository) and prior and chal:
+        refund_challenger_proposed_terminal(
+            db,
+            challenge_id=challenge_id,
+            challenger_clerk_user_id=chal,
+            gifted=gifted,
+            reason="decline",
+        )
     return rec.to_out()
 
 
@@ -267,8 +342,15 @@ def post_decline_challenge(
 def post_cancel_challenge(
     challenge_id: str,
     repo: Annotated[ChallengeRepositoryProtocol, Depends(get_challenge_repository)],
+    db: Annotated[Session | None, Depends(get_db_or_none)],
     actor_clerk_user_id: str = Depends(require_clerk_user_id),
 ) -> ChallengeOut:
+    rec0 = repo.get(challenge_id)
+    if not rec0:
+        raise HTTPException(status_code=404, detail="Challenge not found.")
+    prior = (rec0.status or "").lower() == "proposed"
+    gifted = rec0.gifted
+    chal = (rec0.challenger_clerk_user_id or "").strip()
     try:
         rec = cancel_proposed(repo, challenge_id, actor_clerk_user_id)
     except KeyError:
@@ -277,6 +359,14 @@ def post_cancel_challenge(
         raise HTTPException(status_code=403, detail=str(e)) from e
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+    if db is not None and isinstance(repo, DbChallengeRepository) and prior and chal:
+        refund_challenger_proposed_terminal(
+            db,
+            challenge_id=challenge_id,
+            challenger_clerk_user_id=chal,
+            gifted=gifted,
+            reason="cancel",
+        )
     return rec.to_out()
 
 

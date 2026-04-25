@@ -1,12 +1,10 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useParams } from 'react-router-dom'
 import { RootLayout } from '../components/RootLayout'
 import { RequireSessionAuth } from '../components/auth/RequireSessionAuth'
 import { Home } from '../pages/Home'
-import { ChallengeStart } from '../pages/ChallengeStart'
 import { CreateChallenge } from '../pages/CreateChallenge'
 import { ChallengeDetail } from '../pages/ChallengeDetail'
 import { SubmitResult } from '../pages/SubmitResult'
-import { ChallengeResult } from '../pages/ChallengeResult'
 import { Leaderboard } from '../pages/Leaderboard'
 import { PushupAlgorithmLab } from '../pages/PushupAlgorithmLab'
 import { PurchaseSuccess } from '../pages/PurchaseSuccess'
@@ -22,6 +20,12 @@ import { Dashboard } from '../pages/Dashboard'
 import { CreditsPage } from '../pages/CreditsPage'
 import { Admin } from '../pages/Admin'
 import { RequireAdmin } from '../components/auth/RequireAdmin'
+
+function ChallengeResultRedirect() {
+  const { challengeId } = useParams()
+  if (!challengeId) return <Navigate to="/" replace />
+  return <Navigate to={`/c/${challengeId}`} replace />
+}
 
 export function AppRoutes() {
   return (
@@ -97,7 +101,15 @@ export function AppRoutes() {
           path="/challenge/start"
           element={
             <RequireSessionAuth>
-              <ChallengeStart />
+              <Navigate to="/challenge" replace />
+            </RequireSessionAuth>
+          }
+        />
+        <Route
+          path="/challenge"
+          element={
+            <RequireSessionAuth>
+              <CreateChallenge />
             </RequireSessionAuth>
           }
         />
@@ -122,7 +134,7 @@ export function AppRoutes() {
           path="/c/:challengeId/result"
           element={
             <RequireSessionAuth>
-              <ChallengeResult />
+              <ChallengeResultRedirect />
             </RequireSessionAuth>
           }
         />

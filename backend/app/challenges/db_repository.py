@@ -9,6 +9,7 @@ from typing import Literal
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, selectinload
 
+from app.challenges.exceptions import IdempotencyGiftMismatchError
 from app.challenges.logic import submit_attempt_blocked_reason
 from app.challenges.repository import (
     ChallengeRecord,
@@ -22,7 +23,7 @@ from app.db.models.challenge_attempt import ChallengeAttempt
 from app.friends.service import is_pair_challenge_blocked, user_ids_for_clerk_pair
 
 
-def _maybe_expire_orm(ch: Challenge) -> bool:
+def _maybe_expire_orm(session: Session, ch: Challenge) -> bool:
     if ch.status in ("completed", "cancelled", "expired", "declined"):
         return False
     if ch.expires_at is None:
@@ -31,7 +32,18 @@ def _maybe_expire_orm(ch: Challenge) -> bool:
         return False
     if ch.challenger_pushups is not None and ch.opponent_pushups is not None:
         return False
+    prev = ch.status
     ch.status = "expired"
+    from app.billing.challenge_credits import maybe_refund_proposed_in_session
+
+    maybe_refund_proposed_in_session(
+        session,
+        challenge_id=ch.id,
+        challenger_clerk_user_id=ch.challenger_clerk_user_id,
+        prior_status=prev,
+        gifted=bool(getattr(ch, "gifted", False)),
+        reason="expire",
+    )
     return True
 
 
@@ -50,6 +62,7 @@ def _record_from_orm(ch: Challenge) -> ChallengeRecord:
         status=ch.status or "pending",
         expires_at=ch.expires_at,
         completed_at=ch.completed_at,
+        gifted=bool(getattr(ch, "gifted", False)),
     )
 
 
@@ -102,7 +115,7 @@ class DbChallengeRepository:
                 )
             ).first()
             if existing:
-                _maybe_expire_orm(existing)
+                _maybe_expire_orm(self.session, existing)
                 self.session.flush()
                 return _record_from_orm(existing)
 
@@ -124,6 +137,7 @@ class DbChallengeRepository:
             opponent_is_member=bool(oid),
             expires_at=expires_at,
             idempotency_key=ikey,
+            gifted=want_gifted,
         )
         self.session.add(ch)
         self.session.flush()
@@ -145,7 +159,7 @@ class DbChallengeRepository:
         ).all()
         out: list[ChallengeRecord] = []
         for ch in rows:
-            _maybe_expire_orm(ch)
+            _maybe_expire_orm(self.session, ch)
             out.append(_record_from_orm(ch))
         self.session.flush()
         return out
@@ -182,6 +196,7 @@ class DbChallengeRepository:
             ch.status = rec.status
         if rec.completed_at is not None:
             ch.completed_at = rec.completed_at
+        ch.gifted = rec.gifted
         _sync_challenge_status(ch)
         self.session.flush()
 
@@ -204,7 +219,7 @@ class DbChallengeRepository:
         if not ch:
             raise KeyError(challenge_id)
 
-        _maybe_expire_orm(ch)
+        _maybe_expire_orm(self.session, ch)
         self.session.flush()
         rec = _record_from_orm(ch)
         reason = submit_attempt_blocked_reason(rec)

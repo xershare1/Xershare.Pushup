@@ -19,6 +19,8 @@ class CreateChallengeBody(BaseModel):
     # Member path: verified server-side via Clerk; emails go to Clerk primary email only
     challengerClerkUserId: str | None = None
     opponentClerkUserId: str | None = None
+    # True = pay 2 credits at send; opponent accepts for free. Default: pay 1 (standard).
+    coverOpponentEntry: bool = False
 
 
 class ChallengeOut(BaseModel):
@@ -34,12 +36,14 @@ class ChallengeOut(BaseModel):
     opponentClerkUserId: str | None = None
     status: str | None = None
     expiresAt: datetime | None = None
+    gifted: bool = False
 
 
 class CreateChallengeResponse(BaseModel):
     challenge: ChallengeOut
     shareLink: str
     notificationSent: bool
+    balanceAfter: int | None = None
 
 
 class SubmitAttemptBody(BaseModel):

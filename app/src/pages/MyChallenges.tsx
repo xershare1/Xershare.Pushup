@@ -71,7 +71,12 @@ function ChallengeCard({ card }: { card: MyChallengeCardModel }) {
       </div>
       <div className="my-challenges-page__card-body">
         <div className="my-challenges-page__card-title-row">
-          <span className="my-challenges-page__card-name">{card.opponentDisplayName}</span>
+          <div className="my-challenges-page__card-name-wrap">
+            <span className="my-challenges-page__card-name">{card.opponentDisplayName}</span>
+            {ch.gifted && (ch.status ?? '').toLowerCase() === 'proposed' && card.kind === 'respond' ? (
+              <span className="my-challenges-page__entry-covered">Entry covered</span>
+            ) : null}
+          </div>
           <span className="my-challenges-page__card-role">{card.roleTag}</span>
         </div>
         <p className="my-challenges-page__card-meta">
