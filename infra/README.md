@@ -20,6 +20,15 @@ npx aws-cdk@2.1107.0 synth   # use at least 2.1107.0 (CLI must match aws-cdk-lib
 | `PushupApiDev` | App Runner API (develop branch) | us-east-2 | 3 |
 | `PushupApiProd` | App Runner API (production branch) | us-east-2 | 3 |
 
+## Solo session video bucket (CORS)
+
+The `PushupApiDev` / `PushupApiProd` stacks create a private S3 bucket for solo recordings. The API issues **presigned PUT** URLs so the **browser uploads directly to S3**. The bucket is deployed with **CORS** allowing `PUT`, `GET`, and `HEAD` from:
+
+- **Dev**: `http://localhost:5173`, `http://127.0.0.1:5173`, `http://localhost:4173`, `https://app.dev.pushuppros.com`
+- **Prod**: `https://app.pushuppros.com`
+
+To support additional origins (e.g. preview deploys), extend `cors_allowed_origins` in [`cdk/stacks/dev_stack.py`](cdk/stacks/dev_stack.py) / [`prod_stack.py`](cdk/stacks/prod_stack.py) and redeploy the API stack (or edit CORS in the AWS console for that bucket).
+
 ## Deploy flow
 
 1. **ACM**: `cdk deploy PushupProsAcm` (us-east-1). Note the `CertificateArn` output.

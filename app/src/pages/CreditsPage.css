@@ -396,6 +396,12 @@ button.credits-page__pack {
   margin: 0;
 }
 
+.credits-page__history-loading-text {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.35);
+  margin: 0;
+}
+
 .credits-page__history-row {
   display: flex;
   align-items: center;

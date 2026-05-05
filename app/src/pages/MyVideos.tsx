@@ -2,6 +2,8 @@ import { useAuth } from '@clerk/react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 
+import { VideoModalPlayer } from '../components/video/VideoModalPlayer'
+import { PageLoading } from '../components/ui/PageLoading'
 import { HttpError } from '../api/httpError'
 import { fetchSoloSessions, type SoloSessionListItem } from '../api/solo'
 import {
@@ -161,7 +163,9 @@ export function MyVideos() {
         </Link>
       </header>
 
-      {loading ? <p className="my-videos-muted">Loading…</p> : null}
+      {loading ? (
+        <PageLoading layout="inline" message="Loading…" messageClassName="my-videos-muted" />
+      ) : null}
       {error ? (
         <p className="my-videos-muted" role="alert">
           {error}
@@ -422,12 +426,11 @@ export function MyVideos() {
             <button type="button" className="my-videos-modal-close" onClick={closeModal}>
               Close
             </button>
-            <video
-              className="my-videos-modal-video"
-              src={modal.url}
-              controls
-              playsInline
-              autoPlay
+            <VideoModalPlayer
+              key={modal.url}
+              url={modal.url}
+              videoClassName="my-videos-modal-video"
+              wrapClassName="my-videos-modal-video-wrap"
             />
             <a
               className="my-videos-modal-download"

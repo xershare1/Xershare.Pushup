@@ -52,12 +52,34 @@ class SubmitAttemptBody(BaseModel):
     role: Literal["challenger", "opponent"]
 
 
+class ChallengeVideoOpponentOut(BaseModel):
+    username: str
+    initials: str
+
+
 class ChallengeVideoItemOut(BaseModel):
+    id: str
     challengeId: str
+    opponent: ChallengeVideoOpponentOut
     role: Literal["challenger", "opponent"]
-    pushupCount: int
-    submittedAt: datetime
+    result: Literal["won", "lost", "tie"]
+    yourScore: int
+    theirScore: int
+    recordedAt: datetime
+    expiresAt: datetime
     videoUrl: str | None = None
+
+
+class ChallengeVideoStatsOut(BaseModel):
+    total: int
+    wins: int
+    losses: int
+    bestReps: int
+
+
+class ChallengeVideosPageOut(BaseModel):
+    challengeVideos: list[ChallengeVideoItemOut]
+    stats: ChallengeVideoStatsOut
 
 
 class ChallengeOutcomeOut(BaseModel):

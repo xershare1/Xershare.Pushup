@@ -9,7 +9,17 @@ class DevStack(Stack):
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        solo = SoloVideoBucketConstruct(self, "SoloVideo", environment="dev")
+        solo = SoloVideoBucketConstruct(
+            self,
+            "SoloVideo",
+            environment="dev",
+            cors_allowed_origins=[
+                "http://localhost:5173",
+                "http://127.0.0.1:5173",
+                "http://localhost:4173",
+                "https://app.dev.pushuppros.com",
+            ],
+        )
 
         existing_arn = self.node.try_get_context("existingAppRunnerServiceArnDev")
         existing_url = self.node.try_get_context("existingAppRunnerServiceUrlDev")

@@ -1,0 +1,46 @@
+.settings-page__section-title {
+  margin: 0 0 0.75rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.settings-page__sound-card {
+  padding: 1.25rem;
+}
+
+.settings-page__toggle-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  cursor: pointer;
+  margin: 0;
+}
+
+.settings-page__toggle-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.settings-page__toggle-label {
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.settings-page__toggle-desc,
+.settings-page__note {
+  font-size: 0.9rem;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.settings-page__toggle-input {
+  flex-shrink: 0;
+  width: 2.75rem;
+  height: 1.5rem;
+  margin-top: 0.2rem;
+  accent-color: var(--accent, #6366f1);
+  cursor: pointer;
+}

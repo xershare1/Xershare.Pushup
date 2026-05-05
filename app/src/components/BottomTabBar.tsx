@@ -123,7 +123,7 @@ export function BottomTabBar({ pendingChallengeCount }: { pendingChallengeCount:
     <nav className="app-shell__tabbar" aria-label="App">
       <Tab to="/dashboard" end label="Home" icon="home" />
       <Tab to="/my-challenges" label="Challenge" icon="challenge" badge={pendingChallengeCount} />
-      <Tab to="/leaderboard" label="Ranks" icon="ranks" />
+      <Tab to="/stats" label="Stats" icon="ranks" />
       <VideosTab />
       <Tab to="/credits" label="Profile" icon="profile" />
     </nav>

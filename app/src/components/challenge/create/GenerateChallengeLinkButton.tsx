@@ -1,3 +1,5 @@
+import { Spinner } from '../../ui/Spinner'
+
 type Props = {
   loading?: boolean
   disabled?: boolean
@@ -16,7 +18,14 @@ export function GenerateChallengeLinkButton({
       onClick={onClick}
       disabled={disabled || loading}
     >
-      {loading ? 'Creating…' : 'Generate challenge link'}
+      {loading ? (
+        <>
+          <Spinner size="sm" />
+          Creating…
+        </>
+      ) : (
+        'Generate challenge link'
+      )}
     </button>
   )
 }

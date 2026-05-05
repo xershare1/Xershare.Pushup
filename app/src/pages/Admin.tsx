@@ -1,8 +1,9 @@
 import { useAuth } from '@clerk/react'
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import {
+  adminGetLeaderboard,
   adminGrantCredits,
   adminLookupUsers,
   adminUserChallengeVideos,
@@ -16,7 +17,8 @@ import {
 } from '../api/admin'
 import type { FriendOut } from '../api/friends'
 import { formatError } from '../lib/formatError'
-import type { Challenge, ChallengeVideoItem } from '../types/challenge'
+import { PageLoading } from '../components/ui/PageLoading'
+import type { Challenge, ChallengeVideoItem, LeaderboardEntry } from '../types/challenge'
 
 export function Admin() {
   const { getToken } = useAuth()
@@ -34,6 +36,32 @@ export function Admin() {
   const [creditsN, setCreditsN] = useState('10')
   const [creditsReason, setCreditsReason] = useState('Support')
   const [creditsBusy, setCreditsBusy] = useState(false)
+
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[] | null>(null)
+  const [leaderboardLoading, setLeaderboardLoading] = useState(true)
+  const [leaderboardError, setLeaderboardError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    setLeaderboardLoading(true)
+    setLeaderboardError(null)
+    void adminGetLeaderboard(getToken)
+      .then((rows) => {
+        if (!cancelled) setLeaderboard(rows)
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          setLeaderboardError(formatError(e))
+          setLeaderboard(null)
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLeaderboardLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [getToken])
 
   const onSearch = useCallback(async () => {
     setError(null)
@@ -118,6 +146,60 @@ export function Admin() {
       <h1 className="page-title">Admin</h1>
       <p className="lede">Search users, inspect activity, and adjust credits (allowlisted accounts only).</p>
 
+      <div className="card stack" style={{ marginTop: '1rem' }}>
+        <h2 className="page-title" style={{ fontSize: '1.1rem', margin: 0 }}>
+          Leaderboard (admin)
+        </h2>
+        <p className="muted" style={{ margin: 0 }}>
+          Top performers by best verified rep count — same data formerly at the public route.
+        </p>
+        {leaderboardLoading ? (
+          <PageLoading layout="inline" message="Loading leaderboard…" messageClassName="muted" />
+        ) : null}
+        {leaderboardError ? (
+          <p className="banner banner-error" role="alert" style={{ marginBottom: 0 }}>
+            {leaderboardError}
+          </p>
+        ) : null}
+        {!leaderboardLoading && leaderboard && leaderboard.length > 0 ? (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+              <thead>
+                <tr>
+                  <th style={{ textAlign: 'left', padding: '8px 6px', borderBottom: '1px solid var(--border, #2a3140)' }}>
+                    Rank
+                  </th>
+                  <th style={{ textAlign: 'left', padding: '8px 6px', borderBottom: '1px solid var(--border, #2a3140)' }}>
+                    Display name
+                  </th>
+                  <th style={{ textAlign: 'right', padding: '8px 6px', borderBottom: '1px solid var(--border, #2a3140)' }}>
+                    Best reps
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {leaderboard.map((row) => (
+                  <tr key={`${row.rank}-${row.displayName}`}>
+                    <td style={{ padding: '6px', borderBottom: '1px solid var(--border, #2a3140)' }}>{row.rank}</td>
+                    <td style={{ padding: '6px', borderBottom: '1px solid var(--border, #2a3140)' }}>
+                      {row.displayName}
+                    </td>
+                    <td style={{ padding: '6px', textAlign: 'right', borderBottom: '1px solid var(--border, #2a3140)' }}>
+                      {row.bestPushups}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+        {!leaderboardLoading && leaderboard?.length === 0 ? (
+          <p className="muted" style={{ margin: 0 }}>
+            No entries yet.
+          </p>
+        ) : null}
+      </div>
+
       {error ? (
         <p className="banner banner-error" role="alert">
           {error}
@@ -164,7 +246,9 @@ export function Admin() {
         ) : null}
       </div>
 
-      {targetId && loadingUser ? <p className="muted">Loading user…</p> : null}
+      {targetId && loadingUser ? (
+        <PageLoading layout="inline" message="Loading user…" messageClassName="muted" />
+      ) : null}
 
       {profile ? (
         <div className="card stack" style={{ marginTop: '1rem' }}>
@@ -258,8 +342,8 @@ export function Admin() {
           ) : (
             <ul style={{ margin: 0, paddingLeft: '1.2rem' }}>
               {cVideos.map((v) => (
-                <li key={`${v.challengeId}-${v.role}`}>
-                  {v.challengeId} — {v.role} — {v.pushupCount} reps
+                <li key={v.id}>
+                  {v.opponent.username} ({v.role}) — {v.yourScore} vs {v.theirScore} ({v.result})
                   {v.videoUrl ? (
                     <>
                       {' '}

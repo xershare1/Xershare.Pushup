@@ -10,6 +10,7 @@ import {
   type CreditHistoryItem,
 } from '../api/billing'
 import { formatError } from '../lib/formatError'
+import { PageLoading } from '../components/ui/PageLoading'
 
 import './CreditsPage.css'
 
@@ -318,9 +319,12 @@ export function CreditsPage() {
       <h2 className="credits-page__history-label">Credit history</h2>
       <div className="credits-page__history-panel">
         {history === null ? (
-          <p className="credits-page__history-empty" aria-busy="true">
-            Loading…
-          </p>
+          <PageLoading
+            layout="inline"
+            className="credits-page__history-empty"
+            message="Loading…"
+            messageClassName="credits-page__history-loading-text"
+          />
         ) : history.length === 0 ? (
           <p className="credits-page__history-empty">No credit activity yet.</p>
         ) : (

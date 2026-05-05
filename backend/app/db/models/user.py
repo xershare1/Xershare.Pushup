@@ -29,6 +29,11 @@ class User(Base):
         nullable=False,
         server_default=text("true"),
     )
+    voice_rep_counter_enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        server_default=text("false"),
+    )
     onboarding_completed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,

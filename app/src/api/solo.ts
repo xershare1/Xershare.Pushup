@@ -1,11 +1,26 @@
-import { type ClerkGetToken, fetchAuthed, jsonFetchAuthed } from './client'
+import { type ClerkGetToken, jsonFetchAuthed } from './client'
 import { isMockApiEnabled } from './config'
 import { HttpError } from './httpError'
+import { soloMultipartUploadToComplete } from './soloMultipartUpload'
 
 export type SoloSessionResponse = {
   sessionId: string
   reps: number
   videoUrl: string | null
+}
+
+export type SoloUploadStrategy = 'simple_put' | 'multipart'
+
+export type SoloSessionPrepareResponse = {
+  sessionId: string
+  reps: number
+  videoUrl: string | null
+  uploadUrl: string | null
+  uploadHeaders: Record<string, string>
+  uploadStrategy?: SoloUploadStrategy
+  multipartThresholdBytes?: number | null
+  multipartRecommendedPartBytes?: number | null
+  multipartMaxConcurrency?: number | null
 }
 
 export type SoloSessionListItem = {
@@ -34,13 +49,52 @@ function parseFastApiDetail(text: string): string {
   return text.trim() || 'Request failed'
 }
 
+function putBlobToS3(
+  uploadUrl: string,
+  blob: Blob,
+  headers: Record<string, string>,
+  onUploadProgress?: (loaded: number, total: number) => void,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('PUT', uploadUrl)
+    for (const [k, v] of Object.entries(headers)) {
+      xhr.setRequestHeader(k, v)
+    }
+    xhr.upload.onprogress = (ev) => {
+      if (ev.lengthComputable && onUploadProgress) {
+        onUploadProgress(ev.loaded, ev.total)
+      }
+    }
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve()
+        return
+      }
+      const text = xhr.responseText || xhr.statusText
+      reject(new HttpError(xhr.status, text || 'Upload to storage failed.'))
+    }
+    xhr.onerror = () => reject(new HttpError(0, 'Network error while uploading to storage.'))
+    xhr.onabort = () => reject(new HttpError(0, 'Upload cancelled.'))
+    xhr.send(blob)
+  })
+}
+
+export type SoloCloudPhase = 'uploading' | 'processing'
+
+export type CreateSoloSessionOptions = {
+  onUploadProgress?: (loaded: number, total: number) => void
+  onPhaseChange?: (phase: SoloCloudPhase) => void
+}
+
 /**
  * Persist a solo set (reps + optional recorded video). Requires Clerk session JWT.
- * Uses multipart/form-data; do not set Content-Type (browser sets boundary).
+ * Recordings upload via presigned PUT or multipart UploadPart directly to S3, then finalize on the API.
  */
 export async function createSoloSession(
   getToken: ClerkGetToken,
   params: { reps: number; video?: Blob | null; sessionId?: string },
+  options?: CreateSoloSessionOptions,
 ): Promise<SoloSessionResponse> {
   if (isMockApiEnabled()) {
     return {
@@ -50,40 +104,117 @@ export async function createSoloSession(
     }
   }
 
-  const token = await getToken()
+  const token = (await getToken()) ?? null
   if (!token) {
     throw new Error('Sign in to save your session.')
   }
 
-  const form = new FormData()
-  form.append('reps', String(params.reps))
-  if (params.sessionId) {
-    form.append('session_id', params.sessionId)
-  }
-  if (params.video && params.video.size > 0) {
-    const ext = params.video.type.includes('mp4') ? 'mp4' : 'webm'
-    form.append('video', params.video, `solo-session.${ext}`)
+  const progress = options?.onUploadProgress
+  const onPhaseChange = options?.onPhaseChange
+  const sessionId = params.sessionId
+  if (!sessionId) {
+    throw new Error('Missing session id for solo save.')
   }
 
-  const res = await fetchAuthed(getToken, '/solo/session', {
-    method: 'POST',
-    body: form,
-  })
+  const video = params.video
+  const hasVideo = Boolean(video && video.size > 0)
 
-  if (!res.ok) {
-    const text = await res.text()
-    throw new HttpError(res.status, parseFastApiDetail(text))
+  try {
+    if (!hasVideo) {
+      return await jsonFetchAuthed<SoloSessionResponse>(getToken, '/solo/session/complete-upload', {
+        method: 'POST',
+        body: JSON.stringify({
+          sessionId,
+          reps: params.reps,
+        }),
+      })
+    }
+
+    onPhaseChange?.('uploading')
+
+    const prepared = await jsonFetchAuthed<SoloSessionPrepareResponse>(
+      getToken,
+      '/solo/session/prepare-upload',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          reps: params.reps,
+          sessionId,
+          contentType: video!.type || 'video/webm',
+          videoSizeBytes: video!.size,
+        }),
+      },
+    )
+
+    if (prepared.videoUrl) {
+      return {
+        sessionId: prepared.sessionId,
+        reps: prepared.reps,
+        videoUrl: prepared.videoUrl,
+      }
+    }
+
+    const multipart = prepared.uploadStrategy === 'multipart'
+
+    if (multipart) {
+      const assembled = await soloMultipartUploadToComplete({
+        getToken,
+        sessionId: prepared.sessionId,
+        blob: video!,
+        contentType: video!.type || 'video/webm',
+        reps: params.reps,
+        recommendedChunkBytes: prepared.multipartRecommendedPartBytes ?? undefined,
+        maxConcurrency: prepared.multipartMaxConcurrency ?? undefined,
+        onUploadProgress: progress,
+      })
+
+      if (assembled.kind === 'already_finished') {
+        return {
+          sessionId: assembled.sessionId,
+          reps: assembled.reps,
+          videoUrl: assembled.videoUrl,
+        }
+      }
+
+      onPhaseChange?.('processing')
+      return await jsonFetchAuthed<SoloSessionResponse>(getToken, '/solo/session/complete-upload', {
+        method: 'POST',
+        body: JSON.stringify({
+          sessionId: prepared.sessionId,
+          reps: params.reps,
+          contentType: video!.type || 'video/webm',
+        }),
+      })
+    }
+
+    const uploadUrl = prepared.uploadUrl
+    if (!uploadUrl) {
+      throw new Error('Server did not return an upload URL.')
+    }
+
+    await putBlobToS3(uploadUrl, video!, prepared.uploadHeaders, progress)
+    onPhaseChange?.('processing')
+
+    return await jsonFetchAuthed<SoloSessionResponse>(getToken, '/solo/session/complete-upload', {
+      method: 'POST',
+      body: JSON.stringify({
+        sessionId: prepared.sessionId,
+        reps: params.reps,
+        contentType: video!.type || 'video/webm',
+      }),
+    })
+  } catch (e) {
+    if (e instanceof HttpError) {
+      throw new HttpError(e.status, parseFastApiDetail(e.message))
+    }
+    throw e
   }
-
-  return res.json() as Promise<SoloSessionResponse>
 }
 
 /**
- * List non-expired solo sessions (newest first). Presigned video URLs when a recording exists.
+ * List non-expired solo sessions (newest first). Playback URLs (CloudFront or S3) when stored.
  */
-export async function fetchSoloSessions(
-  getToken: ClerkGetToken,
-): Promise<SoloSessionListItem[]> {
+export async function fetchSoloSessions(getToken: ClerkGetToken): Promise<SoloSessionListItem[]> {
   if (isMockApiEnabled()) {
     const now = Date.now()
     const hour = 60 * 60 * 1000

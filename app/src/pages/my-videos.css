@@ -611,6 +611,10 @@
   border: var(--mv-border);
 }
 
+.my-videos-modal-video-wrap {
+  border-radius: 8px;
+}
+
 .my-videos-modal-video {
   width: 100%;
   max-height: min(70vh, 560px);

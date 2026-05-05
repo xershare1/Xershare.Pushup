@@ -171,12 +171,72 @@ def get_aws_region() -> str:
     return _env("AWS_REGION", "us-east-1") or "us-east-1"
 
 
-def get_solo_max_video_bytes() -> int:
-    raw = _env("SOLO_MAX_VIDEO_BYTES", str(50 * 1024 * 1024))
+def get_solo_multipart_threshold_bytes() -> int:
+    """Use S3 multipart (client-direct) above this video size (default 100MiB)."""
+    raw = _env("SOLO_MULTIPART_THRESHOLD_BYTES", str(100 * 1024 * 1024))
     try:
-        return max(1_000_000, min(500 * 1024 * 1024, int(raw or str(50 * 1024 * 1024))))
+        return max(
+            5 * 1024 * 1024,
+            min(500 * 1024 * 1024, int(raw or str(100 * 1024 * 1024))),
+        )
     except (TypeError, ValueError):
-        return 50 * 1024 * 1024
+        return 100 * 1024 * 1024
+
+
+def get_cloudfront_video_domain() -> str | None:
+    """
+    Playback domain without scheme, e.g. dxxxx.cloudfront.net.
+    Full URLs are constructed as https://{domain}/{s3-key}.
+    """
+    raw = _env("CLOUDFRONT_VIDEO_DOMAIN")
+    if not raw:
+        return None
+    stripped = raw.replace("https://", "").replace("http://", "").strip().rstrip("/")
+    return stripped or None
+
+
+def get_cloudfront_key_pair_id() -> str | None:
+    """Trusted key group RSA key pair id for signed URLs (CloudFront distribution)."""
+    return _env("CLOUDFRONT_VIDEO_KEY_PAIR_ID")
+
+
+def get_cloudfront_private_key_pem() -> str | None:
+    """PEM PKCS#8 private key string matching the uploaded CloudFront public key."""
+    inline = _env("CLOUDFRONT_VIDEO_PRIVATE_KEY_PEM")
+    if inline is None or not str(inline).strip():
+        inline = _env("CLOUDFRONT_PRIVATE_KEY_PEM")
+    candidate = (inline or "").strip()
+    if candidate:
+        escaped = "\\n"
+        if escaped in candidate and "\n" not in candidate.replace(escaped, ""):
+            candidate = candidate.replace(escaped, "\n")
+        return candidate
+
+    path_value = _env("CLOUDFRONT_VIDEO_PRIVATE_KEY_PEM_FILE") or _env("CLOUDFRONT_PRIVATE_KEY_PEM_FILE")
+    path = (path_value or "").strip()
+    if not path:
+        return None
+    try:
+        with open(path, encoding="utf-8") as fh:
+            file_pem = fh.read().strip()
+    except OSError:
+        return None
+    return file_pem or None
+
+
+def solo_video_default_cache_control() -> str:
+    """Default Cache-Control metadata on uploads (supports CloudFront origin caching semantics)."""
+    return _env("SOLO_VIDEO_CACHE_CONTROL", "private, max-age=3600") or "private, max-age=3600"
+
+
+def get_solo_max_video_bytes() -> int:
+    # Default raised so multipart (>100MiB threshold) applies to realistic long/high-bitrate captures.
+    default_max = str(200 * 1024 * 1024)
+    raw = _env("SOLO_MAX_VIDEO_BYTES", default_max)
+    try:
+        return max(1_000_000, min(500 * 1024 * 1024, int(raw or default_max)))
+    except (TypeError, ValueError):
+        return 200 * 1024 * 1024
 
 
 def get_challenge_max_video_bytes() -> int:

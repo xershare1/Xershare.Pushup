@@ -29,6 +29,17 @@
   object-fit: contain;
 }
 
+/* Hidden canvas — composite matches preview for MediaRecorder upload */
+.pushup-session-record-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 0;
+}
+
 .pushup-session-overlay-root {
   position: absolute;
   inset: 0;
@@ -203,6 +214,12 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 1rem;
+}
+
+.pushup-hud-stats-pair {
+  display: flex;
+  align-items: center;
   gap: 1rem;
 }
 
@@ -725,6 +742,46 @@
   pointer-events: auto;
 }
 
+.pushup-hud-solo-actions {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.pushup-voice-toggle {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+  color: rgba(255, 255, 255, 0.92);
+  flex-shrink: 0;
+}
+
+.pushup-voice-toggle--active {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.pushup-voice-toggle--active:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.pushup-voice-toggle--muted {
+  background: transparent;
+  border: 1px solid transparent;
+  opacity: 0.4;
+}
+
+.pushup-voice-toggle--muted:hover {
+  opacity: 0.55;
+}
+
 .pushup-hud-solo-timer-card {
   padding: 0.45rem 0.65rem;
   background: rgba(13, 13, 15, 0.8);
@@ -929,7 +986,7 @@
 
 .pushup-results-solo-save {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.45rem;
   padding: 0.55rem 0.65rem;
   border-radius: 10px;
@@ -954,7 +1011,22 @@
   flex-shrink: 0;
 }
 
+.pushup-results-solo-save-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.pushup-results-solo-save-progress {
+  width: 100%;
+  height: 6px;
+  accent-color: #4caf50;
+}
+
 .pushup-results-solo-save--pending .pushup-results-solo-save-dot {
+  margin-top: 4px;
   background: rgba(255, 255, 255, 0.35);
 }
 
@@ -962,6 +1034,14 @@
   margin: 0 0 1rem;
   font-size: 13px;
   color: #e57373;
+}
+
+.pushup-results-solo-error-block {
+  margin-bottom: 1rem;
+}
+
+.pushup-results-solo-error-block .pushup-results-solo-btn-ghost {
+  margin-top: 0.5rem;
 }
 
 .pushup-results-solo-actions {

@@ -4,6 +4,7 @@ import { useAuth, useUser } from '@clerk/react'
 import { fetchMyChallenges } from '../api/challenges'
 import type { Challenge } from '../types/challenge'
 import { formatError } from '../lib/formatError'
+import { PageLoading } from '../components/ui/PageLoading'
 import {
   buildMyChallengeCards,
   filterMyChallengeCards,
@@ -179,7 +180,11 @@ export function MyChallenges() {
   if (loading) {
     return (
       <section className="my-challenges-page">
-        <p className="my-challenges-page__loading">Loading your challenges…</p>
+        <PageLoading
+          className="my-challenges-page__loading"
+          message="Loading your challenges…"
+          messageClassName="app-page-loading__msg"
+        />
       </section>
     )
   }

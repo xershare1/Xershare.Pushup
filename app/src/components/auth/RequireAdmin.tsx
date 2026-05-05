@@ -4,6 +4,7 @@ import { Navigate } from 'react-router-dom'
 
 import { checkAdminAccess } from '../../api/admin'
 import { isMockApiEnabled } from '../../api/config'
+import { PageLoading } from '../ui/PageLoading'
 
 type Props = {
   children: React.ReactNode
@@ -12,7 +13,7 @@ type Props = {
 function LoadingAccess() {
   return (
     <section className="stack narrow">
-      <p className="muted">Checking access…</p>
+      <PageLoading pageDensity="tight" message="Checking access…" />
     </section>
   )
 }

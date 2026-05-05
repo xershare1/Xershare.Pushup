@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { FriendOut } from '../../../api/friends'
+import { Spinner } from '../../ui/Spinner'
 import './friend-picker.css'
 
 function initialsForFriend(f: FriendOut): string {
@@ -109,7 +110,9 @@ export function FriendPicker({
         <div className="friend-picker__trigger-inner">
           {loading ? (
             <>
-              <div className="friend-picker__avatar friend-picker__avatar--placeholder">…</div>
+              <div className="friend-picker__avatar friend-picker__avatar--placeholder" aria-hidden>
+                <Spinner size="sm" />
+              </div>
               <span className="friend-picker__name friend-picker__name--placeholder">Loading friends…</span>
             </>
           ) : showPlaceholder ? (

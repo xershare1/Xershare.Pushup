@@ -50,12 +50,36 @@ export type SubmitAttemptBody = {
   video?: Blob
 }
 
+export type ChallengeVideoOpponent = {
+  username: string
+  initials: string
+}
+
+export type ChallengeVideoResult = 'won' | 'lost' | 'tie'
+
 export type ChallengeVideoItem = {
+  id: string
   challengeId: string
+  opponent: ChallengeVideoOpponent
   role: ParticipantRole
-  pushupCount: number
-  submittedAt: string
+  result: ChallengeVideoResult
+  yourScore: number
+  theirScore: number
+  recordedAt: string
+  expiresAt: string
   videoUrl: string | null
+}
+
+export type ChallengeVideoStats = {
+  total: number
+  wins: number
+  losses: number
+  bestReps: number
+}
+
+export type ChallengeVideosPage = {
+  challengeVideos: ChallengeVideoItem[]
+  stats: ChallengeVideoStats
 }
 
 export type ChallengeOutcome = {

@@ -5,7 +5,7 @@ import * as poseDetection from '@tensorflow-models/pose-detection'
 let detectorPromise: Promise<poseDetection.PoseDetector> | null = null
 
 /**
- * Single shared MoveNet (Thunder) detector — mirrors usePreJoinRoom / UploadVideo setup.
+ * Single shared MoveNet (Lightning) detector — faster startup than Thunder; good enough for live rep heuristics.
  */
 export function loadMoveNetDetector(): Promise<poseDetection.PoseDetector> {
   if (!detectorPromise) {
@@ -13,7 +13,7 @@ export function loadMoveNetDetector(): Promise<poseDetection.PoseDetector> {
       await tf.setBackend('webgl')
       await tf.ready()
       return poseDetection.createDetector(poseDetection.SupportedModels.MoveNet, {
-        modelType: poseDetection.movenet.modelType.SINGLEPOSE_THUNDER,
+        modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
         minPoseScore: 0.3,
       })
     })()
