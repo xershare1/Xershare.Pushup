@@ -95,13 +95,15 @@ class SoloVideoBucketConstruct(Construct):
         )
 
         # CloudFront pulls objects through OAC — viewers never hit raw S3 for reads.
-        oac = cloudfront.S3OriginAccessControl(
-            self,
-            "VideoOAC",
-            origin_access_control_origin_type=cloudfront.OriginAccessControlOriginTypes.S3,
-            signing=cloudfront.OriginAccessControlSigning.SIGV4_ALWAYS,
-            description=f"Solo/challenge playback OAC ({environment})",
-        )
+        oac = cloudfront.CfnOriginAccessControl(self, "VideoOAC",
+            origin_access_control_config=cloudfront.CfnOriginAccessControl.OriginAccessControlConfigProperty(
+                name="video-oac",
+                origin_access_control_origin_type="s3",
+                signing_behavior="always",   # replaces OriginAccessControlSigning.V4
+                signing_protocol="sigv4",
+                description="OAC for session video bucket"
+    )
+)
 
         origin = origins.S3BucketOrigin.with_origin_access_control(self.bucket, origin_access_control=oac)
 
@@ -135,7 +137,7 @@ class SoloVideoBucketConstruct(Construct):
                 origin=origin,
                 viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
                 compress=True,
-                allowed_methods=cloudfront.AllowedMethods.ALLOW_GET_HEAD,
+                allowed_methods=cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
                 cached_methods=cloudfront.CachedMethods.CACHE_GET_HEAD_OPTIONS,
                 cache_policy=cloudfront.CachePolicy.CACHING_OPTIMIZED,
                 origin_request_policy=cloudfront.OriginRequestPolicy.CORS_S3_ORIGIN,

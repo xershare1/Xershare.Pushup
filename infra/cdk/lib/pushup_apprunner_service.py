@@ -23,7 +23,9 @@ def _context_or_placeholder(scope: Construct, key: str, placeholder: str) -> str
 
 
 class PushupApprunnerService(Construct):
-    """App Runner service from GitHub using repo-root ``apprunner.yaml`` (``configuration_source=REPOSITORY``).
+    """App Runner service from GitHub using ``backend/apprunner.yaml`` (``configuration_source=REPOSITORY``).
+
+    ``source_directory`` is ``backend`` so App Runner finds the config next to the Python app.
     When ``existing_service_arn`` and ``existing_service_url`` are provided, the construct references the
     existing service instead of creating a new one."""
 
@@ -66,6 +68,7 @@ class PushupApprunnerService(Construct):
                 auto_deployments_enabled=True,
                 code_repository=apprunner.CfnService.CodeRepositoryProperty(
                     repository_url=repository_url,
+                    source_directory="backend",
                     source_code_version=apprunner.CfnService.SourceCodeVersionProperty(
                         type="BRANCH",
                         value=branch,
