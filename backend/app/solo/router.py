@@ -9,6 +9,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from starlette.responses import Response
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -396,7 +397,7 @@ async def solo_multipart_complete(
     payload: SoloMultipartCompleteIn,
     clerk_user_id: str = Depends(require_clerk_user_id),
     db: Session = Depends(get_db_required_session),
-) -> None:
+) -> Response:
     """Assemble multipart parts via S3; client then calls ``complete-upload`` to persist the DB row."""
     user_uuid = get_or_create_user_by_clerk_id(db, clerk_user_id)
     sid = _solo_parse_session_uuid(payload.sessionId)
@@ -432,13 +433,15 @@ async def solo_multipart_complete(
             detail=str(e),
         ) from e
 
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
 
 @router.post("/session/multipart/abort", status_code=status.HTTP_204_NO_CONTENT)
 async def solo_multipart_abort(
     payload: SoloMultipartAbortIn,
     clerk_user_id: str = Depends(require_clerk_user_id),
     db: Session = Depends(get_db_required_session),
-) -> None:
+) -> Response:
     user_uuid = get_or_create_user_by_clerk_id(db, clerk_user_id)
     sid = _solo_parse_session_uuid(payload.sessionId)
     expected_key = solo_session_video_key(user_uuid, sid)
@@ -447,6 +450,7 @@ async def solo_multipart_abort(
         object_key=expected_key,
         upload_id=payload.uploadId,
     )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/session/complete-upload", response_model=SoloSessionOut)
