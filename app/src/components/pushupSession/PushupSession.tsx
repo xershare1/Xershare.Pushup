@@ -78,6 +78,8 @@ export function PushupSession({ onBack, variant = 'default', onSessionComplete }
   const compositeSnapshotRef = useRef<CompositeSnapshot | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const activeSessionStartedAtRef = useRef<number | null>(null)
+  /** When true, time elapsed or user stopped — block pose/reps immediately (do not wait for async finishSession). */
+  const activeSessionEndedRef = useRef(false)
 
   const [sessionState, setSessionState] = useState<PushupSessionState>('INITIALIZING')
   const sessionStateRef = useRef<PushupSessionState>(sessionState)
@@ -143,6 +145,15 @@ export function PushupSession({ onBack, variant = 'default', onSessionComplete }
       settingsEnabled: voiceRepCounterEnabled,
       getPersonalBestAtSessionStart,
     })
+
+  const voiceRepCounterEnabledRef = useRef(voiceRepCounterEnabled)
+  const sessionVoiceMutedLocalRef = useRef(sessionVoiceMutedLocal)
+  const cancelAllSpeechRef = useRef(cancelAllSpeech)
+  useLayoutEffect(() => {
+    voiceRepCounterEnabledRef.current = voiceRepCounterEnabled
+    sessionVoiceMutedLocalRef.current = sessionVoiceMutedLocal
+    cancelAllSpeechRef.current = cancelAllSpeech
+  }, [voiceRepCounterEnabled, sessionVoiceMutedLocal, cancelAllSpeech])
 
   useLayoutEffect(() => {
     if (sessionState !== 'COUNTDOWN' && sessionState !== 'ACTIVE_SESSION') {
@@ -243,6 +254,7 @@ export function PushupSession({ onBack, variant = 'default', onSessionComplete }
     }
     if (sessionState === 'ACTIVE_SESSION') {
       activeSessionStartedAtRef.current = Date.now()
+      activeSessionEndedRef.current = false
     }
   }, [sessionState])
 
@@ -493,6 +505,7 @@ export function PushupSession({ onBack, variant = 'default', onSessionComplete }
     }
 
     if (state === 'ACTIVE_SESSION') {
+      if (activeSessionEndedRef.current) return
       const r = advanceRepTrackerFromPoseFrameBased(
         pose,
         payload.poseScore,
@@ -544,12 +557,12 @@ export function PushupSession({ onBack, variant = 'default', onSessionComplete }
 
   useEffect(() => {
     if (sessionState !== 'COUNTDOWN') return
-    const allow = voiceRepCounterEnabled && !sessionVoiceMutedLocal
     let cancelled = false
-    if (allow) playCountdownBeep()
+    if (voiceRepCounterEnabledRef.current && !sessionVoiceMutedLocalRef.current) playCountdownBeep()
     let step = 0
     const id = window.setInterval(() => {
       if (cancelled) return
+      const allow = voiceRepCounterEnabledRef.current && !sessionVoiceMutedLocalRef.current
       step += 1
       if (step === 1) {
         setCountdownPhase(2)
@@ -577,11 +590,10 @@ export function PushupSession({ onBack, variant = 'default', onSessionComplete }
       cancelled = true
       window.clearInterval(id)
     }
-  }, [sessionState, resetRepLogic, voiceRepCounterEnabled, sessionVoiceMutedLocal])
+  }, [sessionState, resetRepLogic])
 
   useEffect(() => {
     if (sessionState !== 'ACTIVE_SESSION') return
-    const allow = voiceRepCounterEnabled && !sessionVoiceMutedLocal
     let lastTenTickAtLeft: number | null = null
     let playedFinal = false
     let finished = false
@@ -591,12 +603,15 @@ export function PushupSession({ onBack, variant = 'default', onSessionComplete }
       const left = Math.max(0, 60 - elapsedSec)
       setRemainingSec(left)
 
+      const allow = voiceRepCounterEnabledRef.current && !sessionVoiceMutedLocalRef.current
+
       if (left <= 0) {
         if (!finished) {
           finished = true
+          activeSessionEndedRef.current = true
           window.clearInterval(id)
           if (allow) {
-            cancelAllSpeech()
+            cancelAllSpeechRef.current()
             if (!playedFinal) {
               playedFinal = true
               playLastTenFinalBeep()
@@ -609,14 +624,15 @@ export function PushupSession({ onBack, variant = 'default', onSessionComplete }
 
       if (allow && left >= 1 && left <= 10 && lastTenTickAtLeft !== left) {
         lastTenTickAtLeft = left
-        cancelAllSpeech()
+        cancelAllSpeechRef.current()
         playLastTenTickBeep()
       }
     }, 250)
     return () => window.clearInterval(id)
-  }, [sessionState, finishSession, voiceRepCounterEnabled, sessionVoiceMutedLocal, cancelAllSpeech])
+  }, [sessionState, finishSession])
 
   const handleStop = useCallback(() => {
+    activeSessionEndedRef.current = true
     cancelAllSpeech()
     void finishSession()
   }, [finishSession, cancelAllSpeech])

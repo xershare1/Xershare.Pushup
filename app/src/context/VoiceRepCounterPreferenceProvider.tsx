@@ -9,9 +9,14 @@ export function VoiceRepCounterPreferenceProvider({ children }: { children: Reac
   const [voiceRepCounterEnabled, setVoiceRepCounterEnabledState] = useState(false)
   const [loading, setLoading] = useState(true)
   const persistQueueRef = useRef(Promise.resolve())
+  const refreshSeqRef = useRef(0)
 
   const refresh = useCallback(async () => {
+    const seq = ++refreshSeqRef.current
+    const isLatest = () => seq === refreshSeqRef.current
+
     if (!isSignedIn) {
+      if (!isLatest()) return
       setVoiceRepCounterEnabledState(false)
       setLoading(false)
       return
@@ -19,11 +24,13 @@ export function VoiceRepCounterPreferenceProvider({ children }: { children: Reac
     setLoading(true)
     try {
       const u = await syncUser(getToken)
+      if (!isLatest()) return
       setVoiceRepCounterEnabledState(Boolean(u?.voiceRepCounterEnabled))
     } catch {
+      if (!isLatest()) return
       setVoiceRepCounterEnabledState(false)
     } finally {
-      setLoading(false)
+      if (isLatest()) setLoading(false)
     }
   }, [isSignedIn, getToken])
 
