@@ -6,5 +6,5 @@
 -- Run against the same database as DATABASE_URL (once per database), then:
 --   alembic upgrade head
 
-ALTER TABLE alembic_version
+ALTER TABLE public.alembic_version
   ALTER COLUMN version_num TYPE VARCHAR(128);

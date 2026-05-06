@@ -31,7 +31,7 @@ def main() -> None:
             SELECT 1 FROM information_schema.tables
             WHERE table_schema = 'public' AND table_name = 'alembic_version'
           ) THEN
-            ALTER TABLE alembic_version
+            ALTER TABLE public.alembic_version
               ALTER COLUMN version_num TYPE VARCHAR(128);
           END IF;
         END

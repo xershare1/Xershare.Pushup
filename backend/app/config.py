@@ -200,6 +200,7 @@ def get_cloudfront_key_pair_id() -> str | None:
     return _env("CLOUDFRONT_VIDEO_KEY_PAIR_ID")
 
 
+@lru_cache(maxsize=1)
 def get_cloudfront_private_key_pem() -> str | None:
     """PEM PKCS#8 private key string matching the uploaded CloudFront public key."""
     inline = _env("CLOUDFRONT_VIDEO_PRIVATE_KEY_PEM")

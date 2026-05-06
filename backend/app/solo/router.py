@@ -460,7 +460,7 @@ async def complete_solo_session_upload(
     When ``contentType`` is set, verifies the object exists via ``HeadObject`` before inserting the row.
     """
     max_reps = get_solo_max_reps()
-    if payload.reps > max_reps:
+    if payload.reps < 1 or payload.reps > max_reps:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Reps must be between 1 and {max_reps}.",

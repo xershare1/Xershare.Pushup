@@ -46,7 +46,7 @@ class SoloSessionPrepareUploadOut(BaseModel):
 
 class SoloSessionCompleteUploadIn(BaseModel):
     sessionId: str
-    reps: int = Field(..., ge=1)
+    reps: int
     contentType: str | None = None
 
 
