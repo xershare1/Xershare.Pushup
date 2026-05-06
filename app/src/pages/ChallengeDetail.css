@@ -25,6 +25,12 @@
   box-sizing: border-box;
 }
 
+.cd-page__loading {
+  align-items: flex-start;
+  text-align: left;
+  min-height: 0;
+}
+
 @keyframes cd-pulse {
   0%,
   100% {

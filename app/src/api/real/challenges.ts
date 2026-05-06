@@ -1,10 +1,9 @@
 import type {
   Challenge,
   ChallengeOutcome,
-  ChallengeVideoItem,
+  ChallengeVideosPage,
   CreateChallengeBody,
   CreateChallengeResponse,
-  LeaderboardEntry,
   SubmitAttemptBody,
 } from '../../types/challenge'
 import { type ClerkGetToken, fetchAuthed, jsonFetch, jsonFetchAuthed } from '../client'
@@ -61,18 +60,14 @@ export async function submitAttempt(
   return res.json() as Promise<Challenge>
 }
 
-export async function fetchChallengeVideos(getToken: ClerkGetToken): Promise<ChallengeVideoItem[]> {
-  return jsonFetchAuthed<ChallengeVideoItem[]>(getToken, '/challenges/me/videos')
+export async function fetchChallengeVideos(getToken: ClerkGetToken): Promise<ChallengeVideosPage> {
+  return jsonFetchAuthed<ChallengeVideosPage>(getToken, '/challenges/me/videos')
 }
 
 export async function getResult(challengeId: string): Promise<ChallengeOutcome> {
   return jsonFetch<ChallengeOutcome>(
     `/challenges/${encodeURIComponent(challengeId)}/result`,
   )
-}
-
-export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
-  return jsonFetch<LeaderboardEntry[]>('/leaderboard')
 }
 
 export async function fetchMyChallenges(getToken: ClerkGetToken): Promise<Challenge[]> {

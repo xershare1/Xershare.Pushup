@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Annotated, Literal, cast
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel, Field
@@ -13,16 +13,19 @@ from sqlalchemy.orm import Session
 from app.admin_auth import require_admin_clerk_user_id
 from app.billing.admin_credits import admin_adjust_credits
 from app.challenges.repository import ChallengeRepositoryProtocol
-from app.challenges.schemas import ChallengeOut, ChallengeVideoItemOut
+from app.challenges.challenge_video_items import build_challenge_video_item
+from app.challenges.leaderboard_build import build_leaderboard
+from app.challenges.schemas import ChallengeOut, ChallengeVideoItemOut, LeaderboardEntryOut
 from app.config import get_database_url, get_video_ttl_hours
 from app.db.deps import get_challenge_repository, get_db_or_none, get_db_required_session
+from app.db.models.challenge import Challenge
 from app.db.models.challenge_attempt import ChallengeAttempt
 from app.db.models.credit_account import CreditAccount
 from app.db.models.solo_session import SoloSession
 from app.db.models.user import User
 from app.friends import service as friend_service
 from app.friends.schemas import FriendOut, FriendsListOut
-from app.solo.s3_storage import presigned_video_url
+from app.solo.video_playback import playback_url_for_video_key
 from app.solo.schemas import SoloSessionListItem, SoloSessionListOut
 
 router = APIRouter()
@@ -61,6 +64,14 @@ def admin_session_probe(
 ) -> Response:
     """Returns 204 when the caller is an admin; 403 otherwise. Used by the SPA to gate /admin."""
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/leaderboard", response_model=list[LeaderboardEntryOut])
+def admin_leaderboard(
+    _: Annotated[str, Depends(require_admin_clerk_user_id)],
+    repo: ChallengeRepositoryProtocol = Depends(get_challenge_repository),
+) -> list[LeaderboardEntryOut]:
+    return build_leaderboard(repo)
 
 
 @router.get("/users/lookup", response_model=AdminUserSearchOut)
@@ -154,36 +165,22 @@ def admin_user_challenge_videos(
     c = (clerk_user_id or "").strip()
     if not c:
         raise HTTPException(status_code=400, detail="clerk_user_id required.")
-    rows = db.scalars(
-        select(ChallengeAttempt)
+    stmt = (
+        select(ChallengeAttempt, Challenge)
+        .join(Challenge, Challenge.id == ChallengeAttempt.challenge_id)
         .where(
             ChallengeAttempt.clerk_user_id == c,
             ChallengeAttempt.video_s3_key.isnot(None),
         )
         .order_by(ChallengeAttempt.submitted_at.desc())
-    ).all()
+    )
+    rows = db.execute(stmt).all()
     ttl = int(get_video_ttl_hours() * 3600 * 2)
     out: list[ChallengeVideoItemOut] = []
-    for att in rows:
-        key = (att.video_s3_key or "").strip()
-        if not key:
-            continue
-        if att.participant_role not in ("challenger", "opponent"):
-            continue
-        role_o: Literal["challenger", "opponent"] = cast(
-            Literal["challenger", "opponent"],
-            att.participant_role,
-        )
-        url = presigned_video_url(key, expires_seconds=ttl) or None
-        out.append(
-            ChallengeVideoItemOut(
-                challengeId=att.challenge_id,
-                role=role_o,
-                pushupCount=att.pushup_count,
-                submittedAt=att.submitted_at,
-                videoUrl=url,
-            )
-        )
+    for att, ch in rows:
+        item = build_challenge_video_item(att, ch, ttl)
+        if item is not None:
+            out.append(item)
     return out
 
 
@@ -208,7 +205,7 @@ def admin_user_solo_sessions(
         video_url: str | None = None
         if row.video_s3_key and row.expires_at > now:
             remaining = int((row.expires_at - now).total_seconds())
-            video_url = presigned_video_url(
+            video_url = playback_url_for_video_key(
                 row.video_s3_key,
                 expires_seconds=max(60, remaining),
             ) or None

@@ -5,7 +5,6 @@ import { Home } from '../pages/Home'
 import { CreateChallenge } from '../pages/CreateChallenge'
 import { ChallengeDetail } from '../pages/ChallengeDetail'
 import { SubmitResult } from '../pages/SubmitResult'
-import { Leaderboard } from '../pages/Leaderboard'
 import { PushupAlgorithmLab } from '../pages/PushupAlgorithmLab'
 import { PurchaseSuccess } from '../pages/PurchaseSuccess'
 import { PurchaseCancel } from '../pages/PurchaseCancel'
@@ -19,6 +18,7 @@ import { SoloSession } from '../pages/SoloSession'
 import { Dashboard } from '../pages/Dashboard'
 import { CreditsPage } from '../pages/CreditsPage'
 import { Admin } from '../pages/Admin'
+import { SettingsPage } from '../pages/SettingsPage'
 import { RequireAdmin } from '../components/auth/RequireAdmin'
 
 function ChallengeResultRedirect() {
@@ -82,6 +82,14 @@ export function AppRoutes() {
           }
         />
         <Route
+          path="/settings"
+          element={
+            <RequireSessionAuth>
+              <SettingsPage />
+            </RequireSessionAuth>
+          }
+        />
+        <Route
           path="/friends"
           element={
             <RequireSessionAuth>
@@ -138,7 +146,7 @@ export function AppRoutes() {
             </RequireSessionAuth>
           }
         />
-        <Route path="/leaderboard" element={<Leaderboard />} />
+        <Route path="/leaderboard" element={<Navigate to="/" replace />} />
         <Route path="/purchase/success" element={<PurchaseSuccess />} />
         <Route path="/purchase/cancel" element={<PurchaseCancel />} />
         <Route path="/purchase" element={<Navigate to="/credits" replace />} />

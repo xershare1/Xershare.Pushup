@@ -2,12 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth, useUser } from '@clerk/react'
 
-import { createChallenge, getLeaderboard } from '../api/challenges'
+import { createChallenge } from '../api/challenges'
 import { fetchCreditBalance } from '../api/billing'
 import { fetchFriends, type FriendOut } from '../api/friends'
-import { lookupUserByDisplayName } from '../api/users'
 import { formatError } from '../lib/formatError'
-import type { CreateChallengeResponse, LeaderboardEntry } from '../types/challenge'
+import { PageLoading } from '../components/ui/PageLoading'
+import type { CreateChallengeResponse } from '../types/challenge'
 
 import './CreateChallenge.css'
 
@@ -19,10 +19,6 @@ function avatarHue(name: string): number {
   let h = 0
   for (let i = 0; i < name.length; i++) h = (h + name.charCodeAt(i) * 7) % 360
   return AVATAR_HUES[h % AVATAR_HUES.length]
-}
-
-function normName(s: string): string {
-  return s.trim().toLowerCase()
 }
 
 function initialsFromName(name: string): string {
@@ -89,13 +85,10 @@ export function CreateChallenge() {
   const [searchQuery, setSearchQuery] = useState('')
 
   const [friends, setFriends] = useState<FriendOut[]>([])
-  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [loadLists, setLoadLists] = useState(true)
   const [listsError, setListsError] = useState(false)
 
   const [selection, setSelection] = useState<OpponentSelection | null>(null)
-  const [resolving, setResolving] = useState(false)
-  const [lookupError, setLookupError] = useState<string | null>(null)
 
   const [payKind, setPayKind] = useState<PayKind>('self')
   const [balance, setBalance] = useState<number | null>(null)
@@ -107,27 +100,6 @@ export function CreateChallenge() {
   const challengerName = useMemo(() => challengerNameFromSession(user), [user])
   const challengerEmail = user?.primaryEmailAddress?.emailAddress ?? undefined
 
-  const friendNameSet = useMemo(() => {
-    const s = new Set<string>()
-    for (const f of friends) {
-      if (f.displayName) s.add(normName(f.displayName))
-    }
-    return s
-  }, [friends])
-
-  const lbByName = useMemo(() => {
-    const m = new Map<string, LeaderboardEntry>()
-    for (const e of leaderboard) {
-      m.set(normName(e.displayName), e)
-    }
-    return m
-  }, [leaderboard])
-
-  const leaderboardExFriends = useMemo(
-    () => leaderboard.filter((e) => !friendNameSet.has(normName(e.displayName))),
-    [leaderboard, friendNameSet],
-  )
-
   const q = searchQuery.trim().toLowerCase()
 
   const friendsFiltered = useMemo(() => {
@@ -135,24 +107,18 @@ export function CreateChallenge() {
     return friends.filter((f) => (f.displayName || '').toLowerCase().includes(q))
   }, [friends, q])
 
-  const lbFiltered = useMemo(() => {
-    if (!q) return leaderboardExFriends
-    return leaderboardExFriends.filter((e) => e.displayName.toLowerCase().includes(q))
-  }, [leaderboardExFriends, q])
-
   const friendsForUI = useMemo(
     () =>
       friendsFiltered.map((f) => {
         const name = f.displayName?.trim() || 'Member'
-        const lb = f.displayName ? lbByName.get(normName(f.displayName)) : undefined
         return {
           friend: f,
           name,
-          line2: lb ? `Rank #${lb.rank} · ${lb.bestPushups} best reps` : 'Friend',
-          personalBest: lb?.bestPushups ?? null,
+          line2: 'Friend',
+          personalBest: null as number | null,
         }
       }),
-    [friendsFiltered, lbByName],
+    [friendsFiltered],
   )
 
   const refreshBalance = useCallback(async () => {
@@ -172,18 +138,14 @@ export function CreateChallenge() {
     let c = false
     setLoadLists(true)
     setListsError(false)
-    void Promise.all([fetchFriends(getToken), getLeaderboard()])
-      .then(([f, lb]) => {
-        if (!c) {
-          setFriends(f)
-          setLeaderboard(lb)
-        }
+    void fetchFriends(getToken)
+      .then((f) => {
+        if (!c) setFriends(f)
       })
       .catch(() => {
         if (!c) {
           setListsError(true)
           setFriends([])
-          setLeaderboard([])
         }
       })
       .finally(() => {
@@ -206,14 +168,13 @@ export function CreateChallenge() {
     const f = friends.find((x) => x.clerkUserId === friendClerkToPreselect)
     if (f) {
       const n = f.displayName?.trim() || 'Friend'
-      const lb = f.displayName ? lbByName.get(normName(f.displayName)) : undefined
       setSelection({
         key: `f:${f.clerkUserId}`,
         opponentClerkUserId: f.clerkUserId,
         displayName: n,
-        personalBest: lb?.bestPushups ?? null,
-        rank: lb?.rank ?? null,
-        line2: lb ? `Rank #${lb.rank} · ${lb.bestPushups} best reps` : 'Friend',
+        personalBest: null,
+        rank: null,
+        line2: 'Friend',
       })
     }
     setSearchParams(
@@ -224,7 +185,7 @@ export function CreateChallenge() {
       },
       { replace: true },
     )
-  }, [friendClerkToPreselect, friends, loadLists, lbByName, setSearchParams])
+  }, [friendClerkToPreselect, friends, loadLists, setSearchParams])
 
   function resetWizard() {
     setStep(1)
@@ -232,54 +193,19 @@ export function CreateChallenge() {
     setPayKind('self')
     setCreateResult(null)
     setSendError(null)
-    setLookupError(null)
     setSearchQuery('')
   }
 
   function selectFriend(friend: FriendOut) {
-    setLookupError(null)
     const n = friend.displayName?.trim() || 'Friend'
-    const lb = friend.displayName ? lbByName.get(normName(friend.displayName)) : undefined
     setSelection({
       key: `f:${friend.clerkUserId}`,
       opponentClerkUserId: friend.clerkUserId,
       displayName: n,
-      personalBest: lb?.bestPushups ?? null,
-      rank: lb?.rank ?? null,
-      line2: lb ? `Rank #${lb.rank} · ${lb.bestPushups} best reps` : 'Friend',
+      personalBest: null,
+      rank: null,
+      line2: 'Friend',
     })
-  }
-
-  async function selectLeaderboardEntry(entry: LeaderboardEntry) {
-    setLookupError(null)
-    setSelection({
-      key: `lb:${normName(entry.displayName)}`,
-      opponentClerkUserId: null,
-      displayName: entry.displayName.trim(),
-      personalBest: entry.bestPushups,
-      rank: entry.rank,
-      line2: `Rank #${entry.rank} · ${entry.bestPushups} best reps`,
-    })
-    setResolving(true)
-    try {
-      const res = await lookupUserByDisplayName(getToken, entry.displayName)
-      setSelection((prev) => {
-        if (!prev || prev.key !== `lb:${normName(entry.displayName)}`) return prev
-        return {
-          ...prev,
-          opponentClerkUserId: res.clerkUserId,
-          displayName: res.displayName?.trim() || prev.displayName,
-        }
-      })
-    } catch (e) {
-      setLookupError(formatError(e))
-      setSelection((prev) => {
-        if (!prev || prev.key !== `lb:${normName(entry.displayName)}`) return prev
-        return { ...prev, opponentClerkUserId: null }
-      })
-    } finally {
-      setResolving(false)
-    }
   }
 
   const bal = balance ?? 0
@@ -327,9 +253,12 @@ export function CreateChallenge() {
       <div className="cc-wizard">
         <div className="cc-wizard__main" style={{ padding: 32 }}>
           <h1 className="cc-h1">Challenge setup</h1>
-          <p className="cc-lede" style={{ margin: 0 }}>
-            Loading…
-          </p>
+          <PageLoading
+            pageDensity="tight"
+            message="Loading…"
+            messageClassName="app-page-loading__msg cc-lede"
+            className="cc-wizard__page-loading"
+          />
         </div>
       </div>
     )
@@ -417,18 +346,14 @@ export function CreateChallenge() {
             loadLists={loadLists}
             listsError={listsError}
             friends={friendsForUI}
-            leaderboard={lbFiltered}
             selectionKey={selection?.key ?? null}
             selectedDisplayName={selection?.opponentClerkUserId ? selection.displayName : null}
-            resolving={resolving}
-            lookupError={lookupError}
             onSelectFriend={selectFriend}
-            onSelectLeaderboard={selectLeaderboardEntry}
             onContinue={() => {
-              if (!selection?.opponentClerkUserId || resolving) return
+              if (!selection?.opponentClerkUserId) return
               setStep(2)
             }}
-            canContinue={Boolean(selection?.opponentClerkUserId) && !resolving}
+            canContinue={Boolean(selection?.opponentClerkUserId)}
           />
         ) : null}
 
@@ -499,27 +424,21 @@ type Step1Props = {
   loadLists: boolean
   listsError: boolean
   friends: FriendRowIn[]
-  leaderboard: LeaderboardEntry[]
   selectionKey: string | null
   selectedDisplayName: string | null
-  resolving: boolean
-  lookupError: string | null
   onSelectFriend: (f: FriendOut) => void
-  onSelectLeaderboard: (e: LeaderboardEntry) => void | Promise<void>
   onContinue: () => void
   canContinue: boolean
 }
 
 function StepChooseOpponent(p: Step1Props) {
-  const continueLabel =
-    p.resolving ? 'Resolving…' : p.selectedDisplayName ? `Continue with ${p.selectedDisplayName} →` : 'Continue →'
+  const continueLabel = p.selectedDisplayName ? `Continue with ${p.selectedDisplayName} →` : 'Continue →'
   return (
     <>
       <h1 className="cc-h1">Who do you want to challenge?</h1>
-      <p className="cc-lede">Pick a friend, search by display name, or challenge someone from the leaderboard.</p>
+      <p className="cc-lede">Pick a friend or search by display name.</p>
 
-      {p.listsError ? <div className="cc-err">Could not load friends or leaderboard. Try again later.</div> : null}
-      {p.lookupError ? <div className="cc-err">{p.lookupError}</div> : null}
+      {p.listsError ? <div className="cc-err">Could not load friends. Try again later.</div> : null}
 
       <div className="cc-search-wrap">
         <IconSearch />
@@ -534,7 +453,9 @@ function StepChooseOpponent(p: Step1Props) {
         />
       </div>
 
-      {p.loadLists ? <p className="cc-lede" style={{ marginTop: 0 }}>Loading…</p> : null}
+      {p.loadLists ? (
+        <PageLoading layout="inline" message="Loading…" messageClassName="cc-lede" />
+      ) : null}
 
       {!p.loadLists && p.friends.length > 0 ? (
         <section>
@@ -555,30 +476,9 @@ function StepChooseOpponent(p: Step1Props) {
         </section>
       ) : null}
 
-      {!p.loadLists && p.friends.length > 0 && p.leaderboard.length > 0 ? <div style={{ height: 16 }} /> : null}
-
-      {!p.loadLists && p.leaderboard.length > 0 ? (
-        <section>
-          <h2 className="cc-sec-lab">Top of leaderboard</h2>
-          {p.leaderboard.map((e) => {
-            const key = `lb:${normName(e.displayName)}`
-            return (
-              <OpponentRow
-                key={`${e.displayName}-${e.rank}`}
-                name={e.displayName}
-                selected={p.selectionKey === key}
-                line2={`Rank #${e.rank}`}
-                personalBest={e.bestPushups}
-                onSelect={() => void p.onSelectLeaderboard(e)}
-              />
-            )
-          })}
-        </section>
-      ) : null}
-
-      {!p.loadLists && p.friends.length === 0 && p.leaderboard.length === 0 && !p.listsError ? (
+      {!p.loadLists && p.friends.length === 0 && !p.listsError ? (
         <p className="cc-lede" style={{ marginTop: 0 }}>
-          No one to show yet. Try again later.
+          No friends yet. Search by display name above or share your profile so others can add you.
         </p>
       ) : null}
 
@@ -591,7 +491,7 @@ function StepChooseOpponent(p: Step1Props) {
         type="button"
         className="cc-btn cc-btn--primary"
         style={{ width: '100%', marginTop: 8 }}
-        disabled={!p.canContinue || p.resolving}
+        disabled={!p.canContinue}
         onClick={p.onContinue}
       >
         {continueLabel}

@@ -1,8 +1,11 @@
 import { useAuth } from '@clerk/react'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
+import { useVoiceRepCounterPreference } from '../../context/useVoiceRepCounterPreference'
 import { fetchSoloSessions } from '../../api/solo'
-import { playCountdownBeep } from '../../lib/audio/sessionAudio'
+import { playCountdownBeep, playLastTenFinalBeep, playLastTenTickBeep } from '../../lib/audio/sessionAudio'
+import { useVoiceCounter } from '../../lib/voice/useVoiceCounter'
+import { loadMoveNetDetector } from '../../lib/pose/loadMoveNetDetector'
 import { PushupService } from '../../lib/pose/pushupService'
 import { evaluateReadiness, getSoloReadinessChecklist } from '../../lib/pose/pushupReadinessChecks'
 import type { SoloReadinessChecklist } from '../../lib/pose/pushupReadinessChecks'
@@ -18,6 +21,7 @@ import { ActiveSessionHud } from './ActiveSessionHud'
 import { CountdownOverlay, type CountdownPhase } from './CountdownOverlay'
 import { ReadinessChecklist } from './ReadinessChecklist'
 import { SessionResults } from './SessionResults'
+import { composePushupRecordingFrame, type CompositeSnapshot } from './sessionRecordingCompositor'
 import './pushup-session.css'
 
 export type PushupSessionState =
@@ -67,9 +71,15 @@ function maxRepsLast7Days(sessions: { reps: number; createdAt: string }[]): numb
 
 export function PushupSession({ onBack, variant = 'default', onSessionComplete }: Props) {
   const { getToken } = useAuth()
+  const { voiceRepCounterEnabled } = useVoiceRepCounterPreference()
   const videoRef = useRef<HTMLVideoElement>(null)
+  const videoWrapRef = useRef<HTMLDivElement>(null)
+  const recordCanvasRef = useRef<HTMLCanvasElement>(null)
+  const compositeSnapshotRef = useRef<CompositeSnapshot | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const activeSessionStartedAtRef = useRef<number | null>(null)
+  /** When true, time elapsed or user stopped — block pose/reps immediately (do not wait for async finishSession). */
+  const activeSessionEndedRef = useRef(false)
 
   const [sessionState, setSessionState] = useState<PushupSessionState>('INITIALIZING')
   const sessionStateRef = useRef<PushupSessionState>(sessionState)
@@ -86,6 +96,10 @@ export function PushupSession({ onBack, variant = 'default', onSessionComplete }
   const [countdownPhase, setCountdownPhase] = useState<CountdownPhase>(3)
   const [reps, setReps] = useState(0)
   const [remainingSec, setRemainingSec] = useState(60)
+  const remainingSecRef = useRef(remainingSec)
+  useLayoutEffect(() => {
+    remainingSecRef.current = remainingSec
+  }, [remainingSec])
   const [motion01, setMotion01] = useState(0.5)
   const [sessionRecording, setSessionRecording] = useState<Blob | null>(null)
   const [soloSyncKey, setSoloSyncKey] = useState<string | null>(null)
@@ -93,6 +107,7 @@ export function PushupSession({ onBack, variant = 'default', onSessionComplete }
   const [soloChecklist, setSoloChecklist] = useState<SoloReadinessChecklist>(SOLO_CHECKLIST_WAIT)
   const [priorPersonalBest, setPriorPersonalBest] = useState<number | null>(null)
   const [bestInLast7Days, setBestInLast7Days] = useState<number | null>(null)
+  const pbFrozenForVoiceRef = useRef(0)
 
   const pushupServiceRef = useRef(new PushupService())
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
@@ -108,6 +123,65 @@ export function PushupSession({ onBack, variant = 'default', onSessionComplete }
     rawDown: boolean
     validated: 'up' | 'down' | 'transition'
   } | null>(null)
+
+  const prevSessionStateForPbFreeze = useRef<PushupSessionState | null>(null)
+  useLayoutEffect(() => {
+    const prev = prevSessionStateForPbFreeze.current
+    if (
+      prev != null &&
+      prev !== 'COUNTDOWN' &&
+      sessionState === 'COUNTDOWN'
+    ) {
+      const pb = variant === 'solo' ? priorPersonalBest ?? 0 : 0
+      pbFrozenForVoiceRef.current = pb
+    }
+    prevSessionStateForPbFreeze.current = sessionState
+  }, [sessionState, variant, priorPersonalBest])
+
+  const getPersonalBestAtSessionStart = useCallback(() => pbFrozenForVoiceRef.current, [])
+
+  const { announceRep, cancelAllSpeech, sessionVoiceMutedLocal, toggleSessionVoiceMute } =
+    useVoiceCounter({
+      settingsEnabled: voiceRepCounterEnabled,
+      getPersonalBestAtSessionStart,
+    })
+
+  const voiceRepCounterEnabledRef = useRef(voiceRepCounterEnabled)
+  const sessionVoiceMutedLocalRef = useRef(sessionVoiceMutedLocal)
+  const cancelAllSpeechRef = useRef(cancelAllSpeech)
+  useLayoutEffect(() => {
+    voiceRepCounterEnabledRef.current = voiceRepCounterEnabled
+    sessionVoiceMutedLocalRef.current = sessionVoiceMutedLocal
+    cancelAllSpeechRef.current = cancelAllSpeech
+  }, [voiceRepCounterEnabled, sessionVoiceMutedLocal, cancelAllSpeech])
+
+  useLayoutEffect(() => {
+    if (sessionState !== 'COUNTDOWN' && sessionState !== 'ACTIVE_SESSION') {
+      compositeSnapshotRef.current = null
+      return
+    }
+    compositeSnapshotRef.current = {
+      sessionState,
+      countdownPhase,
+      reps,
+      remainingSec,
+      motion01,
+      variant,
+      personalBest: priorPersonalBest,
+      voiceHudVisible: voiceRepCounterEnabled,
+      voiceMuted: sessionVoiceMutedLocal,
+    }
+  }, [
+    sessionState,
+    countdownPhase,
+    reps,
+    remainingSec,
+    motion01,
+    variant,
+    priorPersonalBest,
+    voiceRepCounterEnabled,
+    sessionVoiceMutedLocal,
+  ])
 
   const reloadPriorStats = useCallback(async () => {
     if (variant !== 'solo') return
@@ -126,14 +200,21 @@ export function PushupSession({ onBack, variant = 'default', onSessionComplete }
     return () => window.clearTimeout(id)
   }, [reloadPriorStats])
 
+  /** Overlap TF.js WebGL + MoveNet fetch with camera permission / stream startup. */
+  useEffect(() => {
+    void loadMoveNetDetector().catch(() => {
+      /* usePoseEstimationLoop will surface load errors when the loop runs */
+    })
+  }, [])
+
   useEffect(() => {
     let cancelled = false
     void (async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
-            width: { ideal: 960 },
-            height: { ideal: 540 },
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
             frameRate: { ideal: 30 },
           },
           audio: false,
@@ -173,6 +254,7 @@ export function PushupSession({ onBack, variant = 'default', onSessionComplete }
     }
     if (sessionState === 'ACTIVE_SESSION') {
       activeSessionStartedAtRef.current = Date.now()
+      activeSessionEndedRef.current = false
     }
   }, [sessionState])
 
@@ -182,6 +264,7 @@ export function PushupSession({ onBack, variant = 'default', onSessionComplete }
   }, [])
 
   const handleTryAgain = useCallback(() => {
+    cancelAllSpeech()
     warmupFramesRef.current = WARMUP_FRAMES
     stableFramesRef.current = 0
     repTrackerRef.current = createInitialFrameRepTracker()
@@ -196,10 +279,11 @@ export function PushupSession({ onBack, variant = 'default', onSessionComplete }
     setSoloChecklist(SOLO_CHECKLIST_WAIT)
     setSessionState('READINESS_CHECK')
     void reloadPriorStats()
-  }, [reloadPriorStats])
+  }, [reloadPriorStats, cancelAllSpeech])
 
   const finalizeRecordingBlob = useCallback(async (): Promise<Blob | null> => {
     const rec = mediaRecorderRef.current
+    const mimeType = rec?.mimeType || 'video/webm'
     if (rec && rec.state === 'recording') {
       await new Promise<void>((resolve) => {
         const orig = rec.onstop
@@ -216,8 +300,7 @@ export function PushupSession({ onBack, variant = 'default', onSessionComplete }
     }
     const parts = recordedChunksRef.current
     if (parts.length === 0) return null
-    const mime = rec?.mimeType || 'video/webm'
-    return new Blob(parts, { type: mime })
+    return new Blob(parts, { type: mimeType })
   }, [])
 
   const finishSession = useCallback(async () => {
@@ -239,57 +322,122 @@ export function PushupSession({ onBack, variant = 'default', onSessionComplete }
     }
   }, [onSessionComplete, finalizeRecordingBlob])
 
+  const compositeRecordingActive =
+    sessionState === 'COUNTDOWN' || sessionState === 'ACTIVE_SESSION'
+
   useEffect(() => {
-    if (sessionState !== 'ACTIVE_SESSION') return
-    const stream = streamRef.current
-    if (!stream || typeof MediaRecorder === 'undefined') return
+    if (!compositeRecordingActive) return
+    const wrap = videoWrapRef.current
+    const canvas = recordCanvasRef.current
+    const video = videoRef.current
+    const camStream = streamRef.current
+    if (!wrap || !canvas || !video || typeof MediaRecorder === 'undefined') return
+    if (!camStream) return
+
+    let alive = true
+    let raf = 0
+
+    const resizeCanvas = () => {
+      const w = Math.max(2, Math.round(wrap.clientWidth))
+      const h = Math.max(2, Math.round(wrap.clientHeight))
+      if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w
+        canvas.height = h
+      }
+    }
 
     recordedChunksRef.current = []
+    resizeCanvas()
+
+    const ro = new ResizeObserver(() => {
+      resizeCanvas()
+    })
+    ro.observe(wrap)
+
+    const canvasStream =
+      typeof canvas.captureStream === 'function' ? canvas.captureStream(30) : null
+    const streamToRecord = canvasStream ?? camStream
+
+    const preferredMp4 = [
+      'video/mp4;codecs="avc1.42E01E"',
+      'video/mp4;codecs=avc1.42E01E',
+      'video/mp4;codecs=avc1',
+      'video/mp4',
+    ]
     let mime = ''
-    if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9')) {
+    for (const candidate of preferredMp4) {
+      if (MediaRecorder.isTypeSupported(candidate)) {
+        mime = candidate
+        break
+      }
+    }
+    if (!mime && MediaRecorder.isTypeSupported('video/webm;codecs=vp9')) {
       mime = 'video/webm;codecs=vp9'
-    } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8')) {
+    } else if (!mime && MediaRecorder.isTypeSupported('video/webm;codecs=vp8')) {
       mime = 'video/webm;codecs=vp8'
-    } else if (MediaRecorder.isTypeSupported('video/webm')) {
+    } else if (!mime && MediaRecorder.isTypeSupported('video/webm')) {
       mime = 'video/webm'
     }
 
+    const TARGET_VIDEO_BPS = 2_500_000
+
     let recorder: MediaRecorder
     try {
-      recorder = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream)
+      const opts: MediaRecorderOptions = { videoBitsPerSecond: TARGET_VIDEO_BPS }
+      if (mime) opts.mimeType = mime
+      recorder = new MediaRecorder(streamToRecord, opts)
     } catch {
-      return
+      try {
+        recorder = mime
+          ? new MediaRecorder(streamToRecord, { mimeType: mime })
+          : new MediaRecorder(streamToRecord)
+      } catch {
+        ro.disconnect()
+        return
+      }
     }
 
     recorder.ondataavailable = (e) => {
       if (e.data.size > 0) recordedChunksRef.current.push(e.data)
     }
-    recorder.onstop = () => {
-      const parts = recordedChunksRef.current
-      if (parts.length === 0) {
-        setSessionRecording(null)
-        return
-      }
-      const blob = new Blob(parts, { type: recorder.mimeType || 'video/webm' })
-      setSessionRecording(blob)
-    }
+    recorder.onstop = () => {}
 
     mediaRecorderRef.current = recorder
     try {
       recorder.start(1000)
     } catch {
       mediaRecorderRef.current = null
+      ro.disconnect()
       return
     }
 
+    const tick = () => {
+      if (!alive) return
+      resizeCanvas()
+      const ctx = canvas.getContext('2d')
+      const snap = compositeSnapshotRef.current
+      if (ctx && snap && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+        composePushupRecordingFrame(ctx, video, snap)
+      }
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+
     return () => {
+      alive = false
+      cancelAnimationFrame(raf)
+      ro.disconnect()
       const rec = mediaRecorderRef.current
       mediaRecorderRef.current = null
       if (rec && rec.state === 'recording') {
-        rec.stop()
+        try {
+          rec.stop()
+        } catch {
+          /* noop */
+        }
       }
     }
-  }, [sessionState])
+  }, [compositeRecordingActive])
 
   const onPoseFrame = (payload: PoseFramePayload | null) => {
     const state = sessionStateRef.current
@@ -357,6 +505,7 @@ export function PushupSession({ onBack, variant = 'default', onSessionComplete }
     }
 
     if (state === 'ACTIVE_SESSION') {
+      if (activeSessionEndedRef.current) return
       const r = advanceRepTrackerFromPoseFrameBased(
         pose,
         payload.poseScore,
@@ -367,6 +516,9 @@ export function PushupSession({ onBack, variant = 'default', onSessionComplete }
       )
       repTrackerRef.current = r.state
       setReps(r.state.repCount)
+      if (r.repAdded) {
+        announceRep(r.state.repCount, remainingSecRef.current)
+      }
 
       if (r.debug) {
         setMotion01(r.debug.motion01)
@@ -406,24 +558,25 @@ export function PushupSession({ onBack, variant = 'default', onSessionComplete }
   useEffect(() => {
     if (sessionState !== 'COUNTDOWN') return
     let cancelled = false
-    playCountdownBeep()
+    if (voiceRepCounterEnabledRef.current && !sessionVoiceMutedLocalRef.current) playCountdownBeep()
     let step = 0
     const id = window.setInterval(() => {
       if (cancelled) return
+      const allow = voiceRepCounterEnabledRef.current && !sessionVoiceMutedLocalRef.current
       step += 1
       if (step === 1) {
         setCountdownPhase(2)
-        playCountdownBeep()
+        if (allow) playCountdownBeep()
         return
       }
       if (step === 2) {
         setCountdownPhase(1)
-        playCountdownBeep()
+        if (allow) playCountdownBeep()
         return
       }
       if (step === 3) {
         setCountdownPhase('go')
-        playCountdownBeep()
+        if (allow) playCountdownBeep()
         return
       }
       if (step >= 4) {
@@ -441,22 +594,54 @@ export function PushupSession({ onBack, variant = 'default', onSessionComplete }
 
   useEffect(() => {
     if (sessionState !== 'ACTIVE_SESSION') return
+    let lastTenTickAtLeft: number | null = null
+    let playedFinal = false
+    let finished = false
     const start = Date.now()
     const id = window.setInterval(() => {
       const elapsedSec = Math.floor((Date.now() - start) / 1000)
       const left = Math.max(0, 60 - elapsedSec)
       setRemainingSec(left)
+
+      const allow = voiceRepCounterEnabledRef.current && !sessionVoiceMutedLocalRef.current
+
       if (left <= 0) {
-        window.clearInterval(id)
-        void finishSession()
+        if (!finished) {
+          finished = true
+          activeSessionEndedRef.current = true
+          window.clearInterval(id)
+          if (allow) {
+            cancelAllSpeechRef.current()
+            if (!playedFinal) {
+              playedFinal = true
+              playLastTenFinalBeep()
+            }
+          }
+          void finishSession()
+        }
+        return
+      }
+
+      if (allow && left >= 1 && left <= 10 && lastTenTickAtLeft !== left) {
+        lastTenTickAtLeft = left
+        cancelAllSpeechRef.current()
+        playLastTenTickBeep()
       }
     }, 250)
     return () => window.clearInterval(id)
   }, [sessionState, finishSession])
 
   const handleStop = useCallback(() => {
+    activeSessionEndedRef.current = true
+    cancelAllSpeech()
     void finishSession()
-  }, [finishSession])
+  }, [finishSession, cancelAllSpeech])
+
+  useEffect(() => {
+    if (sessionState === 'RESULTS') {
+      cancelAllSpeech()
+    }
+  }, [sessionState, cancelAllSpeech])
 
   const showSessionChrome = sessionState !== 'RESULTS'
   const isSoloFullBleed = variant === 'solo' && sessionState !== 'RESULTS'
@@ -518,6 +703,7 @@ export function PushupSession({ onBack, variant = 'default', onSessionComplete }
       ) : null}
 
       <div
+        ref={videoWrapRef}
         className={
           sessionState === 'RESULTS'
             ? 'pushup-session-video-wrap pushup-session-video-wrap--hidden'
@@ -528,6 +714,7 @@ export function PushupSession({ onBack, variant = 'default', onSessionComplete }
         aria-hidden={sessionState === 'RESULTS'}
       >
         <video ref={videoRef} className="pushup-session-video" autoPlay playsInline muted />
+        <canvas ref={recordCanvasRef} className="pushup-session-record-canvas" aria-hidden />
 
         <div className="pushup-session-overlay-root">
           <AnimatePresence>
@@ -589,6 +776,15 @@ export function PushupSession({ onBack, variant = 'default', onSessionComplete }
               onStop={handleStop}
               variant={variant === 'solo' ? 'solo' : 'default'}
               personalBest={priorPersonalBest}
+              voiceControl={
+                voiceRepCounterEnabled
+                  ? {
+                      show: true,
+                      sessionMuted: sessionVoiceMutedLocal,
+                      onToggle: toggleSessionVoiceMute,
+                    }
+                  : null
+              }
             />
           ) : null}
         </div>

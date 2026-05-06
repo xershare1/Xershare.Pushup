@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useAuth, useUser } from '@clerk/react'
 import { getChallenge, submitAttempt } from '../api/challenges'
 import type { Challenge, ParticipantRole } from '../types/challenge'
 import { formatError } from '../lib/formatError'
+import { PageLoading } from '../components/ui/PageLoading'
 import { PushupSession } from '../components/pushupSession/PushupSession'
+import { unlockWebSpeechFromUserGesture } from '../lib/voice/useVoiceCounter'
 
 function nameFromSession(user: ReturnType<typeof useUser>['user']): string {
   if (!user) return 'Challenger'
@@ -55,6 +57,7 @@ export function SubmitResult() {
   const [pendingRecording, setPendingRecording] = useState<Blob | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const didUnlockSpeechRef = useRef(false)
 
   useEffect(() => {
     if (!challengeId) return
@@ -124,7 +127,7 @@ export function SubmitResult() {
   }
 
   if (step === 'loading') {
-    return <p className="muted">Loading challenge…</p>
+    return <PageLoading pageDensity="tight" message="Loading challenge…" messageClassName="app-page-loading__msg muted" />
   }
 
   if (step === 'error') {
@@ -155,7 +158,14 @@ export function SubmitResult() {
 
   if (step === 'session') {
     return (
-      <section className="stack pushup-session-page">
+      <section
+        className="stack pushup-session-page"
+        onPointerDown={() => {
+          if (didUnlockSpeechRef.current) return
+          didUnlockSpeechRef.current = true
+          unlockWebSpeechFromUserGesture()
+        }}
+      >
         <PushupSession
           onBack={() => navigate(`/c/${challengeId}`)}
           onSessionComplete={onSessionComplete}

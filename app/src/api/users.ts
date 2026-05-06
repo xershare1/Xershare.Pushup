@@ -7,6 +7,7 @@ export type UserSyncResponse = {
   clerkUserId: string
   email: string | null
   displayName: string | null
+  voiceRepCounterEnabled: boolean
 }
 
 export type UserLookupResponse = {
@@ -51,6 +52,7 @@ export async function syncUser(getToken: ClerkGetToken): Promise<UserSyncRespons
       clerkUserId: 'mock_clerk',
       email: null,
       displayName: null,
+      voiceRepCounterEnabled: false,
     }
   }
 
@@ -61,6 +63,32 @@ export async function syncUser(getToken: ClerkGetToken): Promise<UserSyncRespons
 
   return jsonFetchAuthed<UserSyncResponse>(getToken, '/users/sync', {
     method: 'POST',
+  })
+}
+
+export async function patchVoiceRepCounterPreference(
+  getToken: ClerkGetToken,
+  voiceRepCounterEnabled: boolean,
+): Promise<UserSyncResponse | null> {
+  if (isMockApiEnabled()) {
+    return {
+      id: 'mock-user-id',
+      clerkUserId: 'mock_clerk',
+      email: null,
+      displayName: null,
+      voiceRepCounterEnabled,
+    }
+  }
+
+  const token = await getToken()
+  if (!token) {
+    throw new Error('Sign in to update voice preference.')
+  }
+
+  return jsonFetchAuthed<UserSyncResponse>(getToken, '/users/preferences/voice-rep-counter', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ voiceRepCounterEnabled }),
   })
 }
 

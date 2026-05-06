@@ -1022,6 +1022,9 @@
 
 .friends-page__loading {
   margin: 1rem 0;
+}
+
+.friends-page__loading-text {
   font-size: 14px;
   color: var(--friends-muted);
 }
@@ -1858,6 +1861,10 @@
 .stats-page__muted {
   color: rgba(255, 255, 255, 0.3);
   font-size: 14px;
+}
+
+.stats-page__loading-skeleton {
+  margin: 0 0 0.5rem;
 }
 
 .stats-page__banner--error {

@@ -1,3 +1,5 @@
+import { Spinner } from '../../ui/Spinner'
+
 type Props = {
   loading?: boolean
   disabled?: boolean
@@ -16,7 +18,14 @@ export function SendChallengeInviteButton({
       onClick={onClick}
       disabled={disabled || loading}
     >
-      {loading ? 'Sending…' : 'Send'}
+      {loading ? (
+        <>
+          <Spinner size="sm" />
+          Sending…
+        </>
+      ) : (
+        'Send'
+      )}
     </button>
   )
 }

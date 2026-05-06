@@ -51,13 +51,14 @@ export function PublicChrome({ children }: { children: ReactNode }) {
               Challenge
             </NavLink>
             <NavLink
-              to="/leaderboard"
+              to="/stats"
+              end
               className={({ isActive }) =>
                 `nav-link ${isActive ? 'nav-link-active' : ''}`
               }
               onClick={closeNav}
             >
-              Leaderboard
+              Stats
             </NavLink>
           </nav>
 

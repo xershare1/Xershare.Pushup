@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 
 import { fetchStatsPage, type StatsPageModel, type StatsPeriod } from '../api/stats'
 import { formatError } from '../lib/formatError'
+import { StatsPageSkeleton } from '../components/ui/StatsPageSkeleton'
 
 const PERIODS: { id: StatsPeriod; label: string }[] = [
   { id: '7d', label: '7 days' },
@@ -121,7 +122,12 @@ export function Stats() {
         </p>
       ) : null}
 
-      {loading ? <p className="stats-page__muted">Loading…</p> : null}
+      {loading ? (
+        <div className="stats-page__loading-skeleton" role="status" aria-live="polite" aria-busy="true">
+          <span className="app-sr-only">Loading…</span>
+          <StatsPageSkeleton />
+        </div>
+      ) : null}
 
       {!loading && data && deep ? (
         <>

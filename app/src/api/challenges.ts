@@ -5,10 +5,9 @@ import * as real from './real/challenges'
 import type {
   Challenge,
   ChallengeOutcome,
-  ChallengeVideoItem,
+  ChallengeVideosPage,
   CreateChallengeBody,
   CreateChallengeResponse,
-  LeaderboardEntry,
   SubmitAttemptBody,
 } from '../types/challenge'
 
@@ -36,10 +35,6 @@ export async function getResult(challengeId: string): Promise<ChallengeOutcome> 
   return isMockApiEnabled() ? mock.getResult(challengeId) : real.getResult(challengeId)
 }
 
-export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
-  return isMockApiEnabled() ? mock.getLeaderboard() : real.getLeaderboard()
-}
-
 export async function fetchMyChallenges(
   getToken: ClerkGetToken,
 ): Promise<Challenge[]> {
@@ -50,7 +45,7 @@ export async function fetchMyChallenges(
 
 export async function fetchChallengeVideos(
   getToken: ClerkGetToken,
-): Promise<ChallengeVideoItem[]> {
+): Promise<ChallengeVideosPage> {
   return isMockApiEnabled()
     ? mock.fetchChallengeVideos()
     : real.fetchChallengeVideos(getToken)
@@ -87,6 +82,7 @@ export type {
   Challenge,
   ChallengeOutcome,
   ChallengeVideoItem,
+  ChallengeVideosPage,
   CreateChallengeBody,
   CreateChallengeResponse,
   LeaderboardEntry,

@@ -106,6 +106,7 @@ class DbChallengeRepository:
         init = _norm_clerk_id(body.challengerClerkUserId)
         oid = (body.opponentClerkUserId or "").strip()
         ikey = _norm_idempotency_key(idempotency_key) if init else None
+        want_gifted = bool(body.coverOpponentEntry)
 
         if ikey and init:
             existing = self.session.scalars(
@@ -115,6 +116,11 @@ class DbChallengeRepository:
                 )
             ).first()
             if existing:
+                if bool(existing.gifted) != want_gifted:
+                    raise IdempotencyGiftMismatchError(
+                        "Idempotency-Key matches an existing challenge with a different "
+                        "gift (cover opponent) setting. Use a new Idempotency-Key."
+                    )
                 _maybe_expire_orm(self.session, existing)
                 self.session.flush()
                 return _record_from_orm(existing)
@@ -172,7 +178,7 @@ class DbChallengeRepository:
         ).first()
         if not ch:
             return None
-        _maybe_expire_orm(ch)
+        _maybe_expire_orm(self.session, ch)
         self.session.flush()
         return _record_from_orm(ch)
 

@@ -14,6 +14,7 @@ import {
 import type { Challenge, ChallengeOutcome } from '../../../types/challenge'
 import { getLifecycle } from '../../../lib/challengeLifecycle'
 import { formatError } from '../../../lib/formatError'
+import { PageLoading } from '../../ui/PageLoading'
 
 function canRespondAsOpponent(ch: Challenge, userId: string | undefined): boolean {
   if (!userId) return false
@@ -257,9 +258,12 @@ export function ChallengeDetail() {
     return (
       <div className="cd-page">
         <div className="cd-page__inner">
-          <p className="cd-link-quiet" style={{ margin: 0 }}>
-            Loading challenge…
-          </p>
+          <PageLoading
+            className="cd-page__loading"
+            pageDensity="tight"
+            message="Loading challenge…"
+            messageClassName="app-page-loading__msg cd-link-quiet"
+          />
         </div>
       </div>
     )

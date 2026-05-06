@@ -25,6 +25,12 @@
   box-sizing: border-box;
 }
 
+.cc-wizard__page-loading {
+  align-items: flex-start;
+  min-height: 0;
+  text-align: left;
+}
+
 /* Step column */
 .cc-wizard__step-col {
   width: 200px;

@@ -1,5 +1,4 @@
-import type { Challenge } from '../types/challenge'
-import type { ChallengeVideoItem } from '../types/challenge'
+import type { Challenge, ChallengeVideoItem, LeaderboardEntry } from '../types/challenge'
 import { authedFetchOnce, jsonFetchAuthed, type ClerkGetToken } from './client'
 import { isMockApiEnabled } from './config'
 import type { FriendOut } from './friends'
@@ -22,6 +21,10 @@ export async function checkAdminAccess(getToken: ClerkGetToken): Promise<boolean
   if (isMockApiEnabled()) return false
   const res = await authedFetchOnce(getToken, '/admin/session', { method: 'GET' }, { Accept: 'application/json' })
   return res.status === 204
+}
+
+export async function adminGetLeaderboard(getToken: ClerkGetToken): Promise<LeaderboardEntry[]> {
+  return jsonFetchAuthed<LeaderboardEntry[]>(getToken, '/admin/leaderboard', { method: 'GET' })
 }
 
 export async function adminLookupUsers(getToken: ClerkGetToken, query: string): Promise<AdminUserSearchItem[]> {

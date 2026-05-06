@@ -1,0 +1,485 @@
+/* Challenge videos library — /videos/challenges */
+
+.cv-page {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 24px 20px 48px;
+  box-sizing: border-box;
+  background: #0d0d0f;
+  color: #fff;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+.cv-page * {
+  box-sizing: border-box;
+}
+
+.cv-title {
+  margin: 0 0 8px;
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.cv-sub {
+  margin: 0 0 20px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.cv-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.cv-stat {
+  background: #161619;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+
+.cv-stat__val {
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: -0.5px;
+  line-height: 1.15;
+}
+
+.cv-stat__val--wins {
+  color: #4caf50;
+}
+
+.cv-stat__val--losses {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.cv-stat__val--best {
+  color: #ff5722;
+}
+
+.cv-stat__label {
+  margin-top: 4px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.cv-filters {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  margin-bottom: 20px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.cv-filters::-webkit-scrollbar {
+  display: none;
+}
+
+.cv-pill {
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.cv-pill:hover {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.cv-pill--active {
+  background: rgba(255, 255, 255, 0.07);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.cv-section-label {
+  margin: 0 0 10px;
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.cv-section-label--spaced {
+  margin-top: 20px;
+}
+
+.cv-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.cv-card {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
+  overflow: hidden;
+  margin-bottom: 10px;
+  cursor: pointer;
+  background: #161619;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  padding: 0;
+  transition: border-color 0.15s ease;
+}
+
+.cv-card:hover {
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.cv-card--win {
+  border-left: 3px solid rgba(76, 175, 80, 0.5);
+}
+
+.cv-card--loss {
+  border-left: 3px solid rgba(255, 255, 255, 0.1);
+}
+
+.cv-card--expiring {
+  border-color: rgba(255, 87, 34, 0.3);
+  background: rgba(255, 87, 34, 0.03);
+}
+
+.cv-card--expiring:hover {
+  border-color: rgba(255, 87, 34, 0.45);
+}
+
+.cv-thumb {
+  position: relative;
+  flex-shrink: 0;
+  width: 120px;
+  min-height: 88px;
+  background: linear-gradient(145deg, #1a1a1f 0%, #121215 100%);
+}
+
+.cv-thumb-video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 88px;
+  object-fit: cover;
+}
+
+.cv-thumb-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 88px;
+  color: rgba(255, 255, 255, 0.25);
+  font-size: 11px;
+}
+
+.cv-play {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.cv-play__circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1.5px solid rgba(255, 255, 255, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-left: 3px;
+}
+
+.cv-badge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  font-size: 9px;
+  font-weight: 500;
+  padding: 2px 7px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.cv-badge--won {
+  background: rgba(76, 175, 80, 0.9);
+  color: #fff;
+}
+
+.cv-badge--lost {
+  background: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.cv-badge--tie {
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.cv-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 14px 16px;
+  min-width: 0;
+}
+
+.cv-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.cv-vs-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cv-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 9px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.cv-vs-text {
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.cv-date {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.cv-scores {
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.cv-score-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.cv-score-val {
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: -0.5px;
+}
+
+.cv-score-val--win {
+  color: #fff;
+}
+
+.cv-score-val--lose {
+  color: rgba(255, 255, 255, 0.25);
+}
+
+.cv-score-vs {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.2);
+}
+
+.cv-score-labels {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 2px;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.2);
+}
+
+.cv-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.cv-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cv-role {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.cv-expiry-tag {
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(255, 87, 34, 0.12);
+  color: #ff5722;
+  border: 1px solid rgba(255, 87, 34, 0.2);
+}
+
+.cv-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cv-btn {
+  font-size: 12px;
+  padding: 5px 12px;
+  border-radius: 7px;
+  cursor: pointer;
+  font-weight: 500;
+  font-family: inherit;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+}
+
+.cv-btn--primary {
+  background: #ff5722;
+  color: #fff;
+}
+
+.cv-btn--ghost {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.cv-btn--ghost:hover {
+  color: rgba(255, 255, 255, 0.75);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.cv-empty {
+  background: #161619;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
+  padding: 24px 20px;
+}
+
+.cv-empty p {
+  margin: 0 0 16px;
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.cv-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.cv-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.cv-modal {
+  position: relative;
+  max-width: 720px;
+  width: 100%;
+  background: #161619;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.cv-modal-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  border: none;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.cv-modal-video-wrap {
+  margin-top: 32px;
+  border-radius: 8px;
+}
+
+.cv-modal-video {
+  display: block;
+  width: 100%;
+  max-height: min(70vh, 480px);
+  border-radius: 8px;
+}
+
+.cv-card:not(.cv-card--expiring) a[data-cv-download] {
+  opacity: 0.42;
+  transition: opacity 0.12s ease;
+}
+
+.cv-card:not(.cv-card--expiring):hover a[data-cv-download],
+.cv-card--expiring a[data-cv-download] {
+  opacity: 1;
+}
+
+
+@media (max-width: 767px) {
+  .cv-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .cv-thumb {
+    width: 80px;
+  }
+
+  .cv-score-val {
+    font-size: 18px;
+  }
+
+  .cv-page {
+    padding: 16px 16px 40px;
+  }
+}

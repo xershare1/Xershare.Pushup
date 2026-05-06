@@ -12,6 +12,11 @@ class UserSyncOut(BaseModel):
     clerkUserId: str
     email: str | None = None
     displayName: str | None = None
+    voiceRepCounterEnabled: bool = False
+
+
+class VoiceRepCounterPrefIn(BaseModel):
+    voiceRepCounterEnabled: bool
 
 
 class UserLookupOut(BaseModel):

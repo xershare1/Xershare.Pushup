@@ -19,6 +19,7 @@ import {
 } from '../api/friends'
 import { lookupUserByDisplayName } from '../api/users'
 import { formatError } from '../lib/formatError'
+import { FriendsListSkeleton } from '../components/ui/FriendsListSkeleton'
 import { formatOutgoingInvitationMeta, formatSentRelative } from '../lib/formatRelativeSent'
 
 type TabId = 0 | 1 | 2
@@ -274,7 +275,12 @@ export function Friends() {
         </p>
       ) : null}
 
-      {loading ? <p className="friends-page__loading">Loading…</p> : null}
+      {loading ? (
+        <div className="friends-page__loading" role="status" aria-live="polite" aria-busy="true">
+          <span className="app-sr-only">Loading…</span>
+          <FriendsListSkeleton />
+        </div>
+      ) : null}
 
       {!loading ? (
         <>

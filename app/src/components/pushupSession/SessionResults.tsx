@@ -1,15 +1,14 @@
-import { useAuth, useUser } from '@clerk/react'
+import { useAuth } from '@clerk/react'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, startTransition, type FC } from 'react'
 import type { CountUpProps } from 'react-countup'
 import CountUpImport from 'react-countup'
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 
-import { getLeaderboard } from '../../api/challenges'
-import { createSoloSession } from '../../api/solo'
+import { createSoloSession, type SoloCloudPhase } from '../../api/solo'
+import { loadSoloMultipartState, soloAbortMultipartUpload } from '../../api/soloMultipartUpload'
 import { formatError } from '../../lib/formatError'
 import { getSoloResultsFeedbackLine, getWorkoutFeedback } from '../../lib/workoutFeedback'
-import type { LeaderboardEntry } from '../../types/challenge'
 
 /** CJS/ESM interop: Vite may give the component or a module object with `.default`. */
 const CountUp: FC<CountUpProps> =
@@ -44,19 +43,19 @@ function StarIcon() {
   )
 }
 
-function heuristicRank(
-  leaderboard: LeaderboardEntry[] | null,
-  namesToTry: string[],
-): string | null {
-  if (!leaderboard?.length) return null
-  const tries = new Set(namesToTry.map((n) => n.trim().toLowerCase()).filter(Boolean))
-  for (const row of leaderboard) {
-    const dn = (row.displayName ?? '').trim().toLowerCase()
-    if (dn && tries.has(dn)) {
-      return `#${row.rank}`
-    }
-  }
-  return null
+function recordingFileExtension(blob: Blob): string {
+  const mime = blob.type.split(';')[0]?.trim().toLowerCase() || ''
+  if (mime === 'video/mp4' || mime === 'video/quicktime') return 'mp4'
+  if (mime === 'video/webm') return 'webm'
+  if (mime.includes('mp4')) return 'mp4'
+  return 'webm'
+}
+
+function formatRecordingSizeHint(size: number): string {
+  if (size <= 0) return ''
+  const mb = size / (1024 * 1024)
+  const label = mb < 0.1 ? '<0.1' : mb.toFixed(1)
+  return ` ~${label} MB`
 }
 
 export function SessionResults({
@@ -71,7 +70,6 @@ export function SessionResults({
   bestInLast7Days = null,
 }: Props) {
   const { getToken } = useAuth()
-  const { user } = useUser()
   const feedbackDefault = getWorkoutFeedback(reps)
 
   const isNewPersonalBest =
@@ -91,22 +89,49 @@ export function SessionResults({
 
   const [recordingUrl, setRecordingUrl] = useState<string | null>(null)
   const [soloStatus, setSoloStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [soloCloudPhase, setSoloCloudPhase] = useState<SoloCloudPhase | null>(null)
   const [soloError, setSoloError] = useState<string | null>(null)
   const [serverVideoUrl, setServerVideoUrl] = useState<string | null>(null)
-  const [rankLabel, setRankLabel] = useState<string | null>(null)
+  const [uploadPercent, setUploadPercent] = useState<number | null>(null)
+  const [saveRetryNonce, setSaveRetryNonce] = useState(0)
 
   const recordingRef = useRef<Blob | null>(sessionRecording)
   const repsRef = useRef(reps)
   const getTokenRef = useRef(getToken)
+  const soloStatusRef = useRef(soloStatus)
+  const soloSyncKeyRef = useRef<string | null>(soloSyncKey)
+
+  useLayoutEffect(() => {
+    soloStatusRef.current = soloStatus
+  }, [soloStatus])
+
+  useLayoutEffect(() => {
+    soloSyncKeyRef.current = soloSyncKey
+  }, [soloSyncKey])
+
   useLayoutEffect(() => {
     recordingRef.current = sessionRecording
     repsRef.current = reps
     getTokenRef.current = getToken
   }, [sessionRecording, reps, getToken])
 
+  /** Abandon multipart if the tab is closed/navigated mid-upload (avoid effect cleanup races). */
+  useEffect(() => {
+    const onPageHide = () => {
+      if (soloStatusRef.current !== 'saving') return
+      const sid = soloSyncKeyRef.current
+      if (!sid) return
+      const persisted = loadSoloMultipartState(sid)
+      if (!persisted?.uploadId) return
+      void soloAbortMultipartUpload(getTokenRef.current, sid, persisted.uploadId)
+    }
+    window.addEventListener('pagehide', onPageHide)
+    return () => window.removeEventListener('pagehide', onPageHide)
+  }, [])
+
   const downloadFilename = useMemo(() => {
     if (!sessionRecording) return 'pushup-session.webm'
-    const ext = sessionRecording.type.includes('mp4') ? 'mp4' : 'webm'
+    const ext = recordingFileExtension(sessionRecording)
     const id = soloSyncKey ?? 'session'
     return `pushup-session-${id}.${ext}`
   }, [sessionRecording, soloSyncKey])
@@ -119,53 +144,52 @@ export function SessionResults({
       setSoloStatus('saving')
       setSoloError(null)
       setServerVideoUrl(null)
+      setUploadPercent(null)
+      setSoloCloudPhase(recordingRef.current && recordingRef.current.size > 0 ? 'uploading' : null)
     })
 
-    const id = window.setTimeout(async () => {
+    void (async () => {
       try {
-        const result = await createSoloSession(getTokenRef.current, {
-          reps: repsRef.current,
-          video: recordingRef.current,
-          sessionId: soloSyncKey,
-        })
+        const result = await createSoloSession(
+          getTokenRef.current,
+          {
+            reps: repsRef.current,
+            video: recordingRef.current,
+            sessionId: soloSyncKey,
+          },
+          {
+            onUploadProgress: (loaded, total) => {
+              if (cancelled || total <= 0) return
+              const pct = Math.min(100, Math.round((loaded / total) * 100))
+              startTransition(() => setUploadPercent(pct))
+            },
+            onPhaseChange: (phase) => {
+              if (cancelled) return
+              startTransition(() => {
+                setSoloCloudPhase(phase)
+                if (phase === 'processing') setUploadPercent(null)
+              })
+            },
+          },
+        )
         if (cancelled) return
         setSoloStatus('saved')
+        setSoloCloudPhase(null)
         setServerVideoUrl(result.videoUrl)
+        setUploadPercent(null)
       } catch (e) {
         if (cancelled) return
         setSoloStatus('error')
+        setSoloCloudPhase(null)
         setSoloError(formatError(e))
-      }
-    }, 1000)
-
-    return () => {
-      cancelled = true
-      window.clearTimeout(id)
-    }
-  }, [soloSyncKey])
-
-  useEffect(() => {
-    if (variant !== 'solo') return
-    let cancelled = false
-    void (async () => {
-      try {
-        const board = await getLeaderboard()
-        if (cancelled) return
-        const names = [
-          user?.fullName ?? '',
-          [user?.firstName, user?.lastName].filter(Boolean).join(' '),
-          user?.firstName ?? '',
-          user?.username ?? '',
-        ]
-        setRankLabel(heuristicRank(board, names))
-      } catch {
-        if (!cancelled) setRankLabel(null)
+        setUploadPercent(null)
       }
     })()
+
     return () => {
       cancelled = true
     }
-  }, [variant, user])
+  }, [soloSyncKey, saveRetryNonce])
 
   useEffect(() => {
     if (!sessionRecording) {
@@ -181,6 +205,18 @@ export function SessionResults({
 
   const avgRepTime =
     reps > 0 ? `${(sessionDurationSec / reps).toFixed(1)}s` : '—'
+
+  const retryCloudSave = () => {
+    setSaveRetryNonce((n) => n + 1)
+  }
+
+  const saveBannerRecording = Boolean(sessionRecording && sessionRecording.size > 0)
+  const savingHeadline =
+    soloCloudPhase === 'processing'
+      ? 'Verifying upload and saving your session…'
+      : saveBannerRecording
+        ? `Uploading recording${formatRecordingSizeHint(sessionRecording!.size)}…`
+        : 'Saving your session…'
 
   if (variant === 'solo') {
     return (
@@ -221,16 +257,28 @@ export function SessionResults({
               <span className="pushup-results-solo-stat-label">Avg rep</span>
               <span className="pushup-results-solo-stat-value">{avgRepTime}</span>
             </div>
-            <div className="pushup-results-solo-stat">
-              <span className="pushup-results-solo-stat-label">Rank</span>
-              <span className="pushup-results-solo-stat-value">{rankLabel ?? '—'}</span>
-            </div>
           </div>
 
           {soloStatus === 'saving' ? (
             <div className="pushup-results-solo-save pushup-results-solo-save--pending" role="status">
               <span className="pushup-results-solo-save-dot" aria-hidden />
-              Saving your session…
+              <div className="pushup-results-solo-save-body">
+                <span>
+                  {savingHeadline}
+                  {soloCloudPhase === 'uploading' && uploadPercent != null ? ` ${uploadPercent}%` : ''}
+                </span>
+                {soloCloudPhase === 'uploading' && uploadPercent != null ? (
+                  <progress
+                    className="pushup-results-solo-save-progress"
+                    value={uploadPercent}
+                    max={100}
+                    aria-label="Upload progress"
+                  />
+                ) : null}
+                {soloCloudPhase === 'processing' ? (
+                  <progress className="pushup-results-solo-save-progress" aria-label="Processing upload" />
+                ) : null}
+              </div>
             </div>
           ) : null}
           {soloStatus === 'saved' ? (
@@ -240,9 +288,14 @@ export function SessionResults({
             </div>
           ) : null}
           {soloStatus === 'error' && soloError ? (
-            <p className="pushup-results-solo-error" role="alert">
-              Could not save: {soloError}
-            </p>
+            <div className="pushup-results-solo-error-block">
+              <p className="pushup-results-solo-error" role="alert">
+                Could not save: {soloError}
+              </p>
+              <button type="button" className="pushup-results-solo-btn-ghost" onClick={retryCloudSave}>
+                {saveBannerRecording ? 'Retry upload' : 'Retry save'}
+              </button>
+            </div>
           ) : null}
 
           <div className="pushup-results-solo-actions">
@@ -300,9 +353,23 @@ export function SessionResults({
       </div>
 
       {soloStatus === 'saving' ? (
-        <p className="banner banner-warn" role="status" style={{ marginTop: '0.75rem' }}>
-          Saving your session…
-        </p>
+        <div className="banner banner-warn" role="status" style={{ marginTop: '0.75rem' }}>
+          <div>
+            {savingHeadline}
+            {soloCloudPhase === 'uploading' && uploadPercent != null ? ` ${uploadPercent}%` : ''}
+          </div>
+          {soloCloudPhase === 'uploading' && uploadPercent != null ? (
+            <progress
+              value={uploadPercent}
+              max={100}
+              style={{ width: '100%', marginTop: '0.5rem', height: '6px' }}
+              aria-label="Upload progress"
+            />
+          ) : null}
+          {soloCloudPhase === 'processing' ? (
+            <progress aria-label="Processing upload" style={{ width: '100%', marginTop: '0.5rem', height: '6px' }} />
+          ) : null}
+        </div>
       ) : null}
       {soloStatus === 'saved' ? (
         <p className="banner banner-success" role="status" style={{ marginTop: '0.75rem' }}>
@@ -310,9 +377,14 @@ export function SessionResults({
         </p>
       ) : null}
       {soloStatus === 'error' && soloError ? (
-        <p className="banner banner-error" role="alert" style={{ marginTop: '0.75rem' }}>
-          Could not save session: {soloError}
-        </p>
+        <div style={{ marginTop: '0.75rem' }}>
+          <p className="banner banner-error" role="alert">
+            Could not save session: {soloError}
+          </p>
+          <button type="button" className="btn btn-secondary pushup-results-cta-secondary" onClick={retryCloudSave}>
+            {saveBannerRecording ? 'Retry upload' : 'Retry save'}
+          </button>
+        </div>
       ) : null}
 
       <div className="pushup-results-actions">

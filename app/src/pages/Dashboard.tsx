@@ -3,13 +3,14 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { fetchCreditBalance } from '../api/billing'
-import { fetchMyChallenges, getLeaderboard } from '../api/challenges'
+import { fetchMyChallenges } from '../api/challenges'
 import { fetchSoloSessions } from '../api/solo'
 import { fetchMyChallengeRecord } from '../api/users'
 import { countActiveChallenges } from '../lib/challengeParticipation'
 import { formatError } from '../lib/formatError'
 import { getLifecycle } from '../lib/challengeLifecycle'
-import type { Challenge, LeaderboardEntry } from '../types/challenge'
+import { PageLoading } from '../components/ui/PageLoading'
+import type { Challenge } from '../types/challenge'
 
 const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
@@ -80,26 +81,6 @@ function rowSubtitle(ch: Challenge): string {
   return 'No scores yet'
 }
 
-/**
- * Best-effort rank from public leaderboard: matches Clerk profile name to
- * `LeaderboardEntry.displayName` (case-insensitive). Wrong if names differ, user is
- * unranked, or API data is stale.
- */
-function heuristicRank(
-  leaderboard: LeaderboardEntry[] | null,
-  namesToTry: string[],
-): string | null {
-  if (!leaderboard?.length) return null
-  const tries = new Set(namesToTry.map((n) => n.trim().toLowerCase()).filter(Boolean))
-  for (const row of leaderboard) {
-    const dn = (row.displayName ?? '').trim().toLowerCase()
-    if (dn && tries.has(dn)) {
-      return `#${row.rank}`
-    }
-  }
-  return null
-}
-
 export function Dashboard() {
   const { user } = useUser()
   const { getToken } = useAuth()
@@ -120,7 +101,6 @@ export function Dashboard() {
   )
   const [sessions, setSessions] = useState<Awaited<ReturnType<typeof fetchSoloSessions>>>([])
   const [credits, setCredits] = useState<number | null>(null)
-  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[] | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -130,19 +110,17 @@ export function Dashboard() {
       setLoading(true)
       setError(null)
       try {
-        const [chList, rec, solo, bal, board] = await Promise.all([
+        const [chList, rec, solo, bal] = await Promise.all([
           fetchMyChallenges(getToken),
           fetchMyChallengeRecord(getToken),
           fetchSoloSessions(getToken),
           fetchCreditBalance(getToken),
-          getLeaderboard(),
         ])
         if (cancelled) return
         setChallenges(chList)
         setRecord(rec)
         setSessions(solo)
         setCredits(bal)
-        setLeaderboard(board)
       } catch (e) {
         if (!cancelled) {
           setError(formatError(e))
@@ -189,20 +167,18 @@ export function Dashboard() {
   const todayDow = new Date().getDay()
   const maxBucket = Math.max(1, ...chartBuckets)
 
-  const rankLabel = useMemo(() => {
-    const names = [
-      user?.fullName ?? '',
-      [user?.firstName, user?.lastName].filter(Boolean).join(' '),
-      user?.firstName ?? '',
-      user?.username ?? '',
-    ]
-    return heuristicRank(leaderboard, names)
-  }, [leaderboard, user])
-
   const challengePreview = useMemo(() => challenges.slice(0, 6), [challenges])
 
   if (loading) {
-    return <p className="dash__muted">Loading your dashboard…</p>
+    return (
+      <div className="dash">
+        <PageLoading
+          className="dash__loading"
+          message="Loading your dashboard…"
+          messageClassName="app-page-loading__msg dash__muted"
+        />
+      </div>
+    )
   }
 
   return (
@@ -257,11 +233,6 @@ export function Dashboard() {
               Buy more
             </Link>
           </div>
-        </div>
-        <div className="dash__stat">
-          <div className="dash__stat-label">Global rank</div>
-          <div className="dash__stat-value">{rankLabel ?? '—'}</div>
-          <div className="dash__stat-hint">Heuristic · leaderboard name match</div>
         </div>
       </section>
 
@@ -333,9 +304,6 @@ export function Dashboard() {
           </Link>
           <Link className="dash__quick-card" to="/solo">
             Solo session
-          </Link>
-          <Link className="dash__quick-card" to="/leaderboard">
-            Leaderboard
           </Link>
         </div>
       </section>

@@ -1,10 +1,9 @@
 import type {
   Challenge,
   ChallengeOutcome,
-  ChallengeVideoItem,
+  ChallengeVideosPage,
   CreateChallengeBody,
   CreateChallengeResponse,
-  LeaderboardEntry,
   SubmitAttemptBody,
 } from '../../types/challenge'
 import { getLifecycle } from '../../lib/challengeLifecycle'
@@ -113,14 +112,6 @@ export async function getResult(challengeId: string): Promise<ChallengeOutcome> 
   return outcomeFrom(ch)
 }
 
-export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
-  return [
-    { rank: 1, displayName: 'Jamie', bestPushups: 62 },
-    { rank: 2, displayName: 'Riley', bestPushups: 58 },
-    { rank: 3, displayName: 'Sam', bestPushups: 51 },
-  ]
-}
-
 export async function fetchMyChallenges(getToken: ClerkGetToken): Promise<Challenge[]> {
   const sub = await clerkSubFromGetToken(getToken)
   if (!sub) throw new HttpError(401, 'Not signed in.')
@@ -133,8 +124,57 @@ export async function fetchMyChallenges(getToken: ClerkGetToken): Promise<Challe
   return rows
 }
 
-export async function fetchChallengeVideos(): Promise<ChallengeVideoItem[]> {
-  return []
+export async function fetchChallengeVideos(): Promise<ChallengeVideosPage> {
+  const expiresSoon = new Date(Date.now() + 5 * 3600 * 1000).toISOString()
+  const expiresLater = new Date(Date.now() + 72 * 3600 * 1000).toISOString()
+
+  const challengeVideos = [
+    {
+      id: 'cv1',
+      challengeId: 'e332c2d2-87c6-4b3c-b54e-f171a142ec6e',
+      opponent: { username: 'pushuppro22', initials: 'P2' },
+      role: 'challenger' as const,
+      result: 'won' as const,
+      yourScore: 27,
+      theirScore: 14,
+      recordedAt: '2026-04-25T00:07:00Z',
+      expiresAt: expiresSoon,
+      videoUrl: 'https://example.com/mock-challenge-video-1.webm',
+    },
+    {
+      id: 'cv2',
+      challengeId: 'bd992c13-33c5-4514-bdda-b81f865b407e',
+      opponent: { username: 'pushuppro22', initials: 'P2' },
+      role: 'challenger' as const,
+      result: 'won' as const,
+      yourScore: 30,
+      theirScore: 22,
+      recordedAt: '2026-04-23T22:04:00Z',
+      expiresAt: expiresLater,
+      videoUrl: 'https://example.com/mock-challenge-video-2.webm',
+    },
+    {
+      id: 'cv3',
+      challengeId: 'af778761-18cc-487d-bd73-46bd84f73c9e',
+      opponent: { username: 'pushuppro22', initials: 'P2' },
+      role: 'challenger' as const,
+      result: 'lost' as const,
+      yourScore: 27,
+      theirScore: 35,
+      recordedAt: '2026-04-23T21:55:00Z',
+      expiresAt: expiresLater,
+      videoUrl: 'https://example.com/mock-challenge-video-3.webm',
+    },
+  ]
+
+  const stats = {
+    total: challengeVideos.length,
+    wins: challengeVideos.filter((v) => v.result === 'won').length,
+    losses: challengeVideos.filter((v) => v.result === 'lost').length,
+    bestReps: Math.max(...challengeVideos.map((v) => v.yourScore), 0),
+  }
+
+  return { challengeVideos, stats }
 }
 
 export async function acceptChallenge(

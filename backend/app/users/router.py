@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.billing.clerk_auth import require_clerk_user_id
@@ -14,6 +15,7 @@ from app.billing.user_service import (
     find_users_by_display_name,
     sync_user_from_clerk,
 )
+from app.db.models.user import User
 from app.challenges.repository import ChallengeRepositoryProtocol
 from app.challenges.schemas import OkOut
 from app.clerk.backend_client import disable_challenge_notifications
@@ -23,6 +25,7 @@ from app.users.schemas import (
     MyChallengeRecordOut,
     UserLookupOut,
     UserSyncOut,
+    VoiceRepCounterPrefIn,
 )
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -46,6 +49,31 @@ def post_sync_user(
         clerkUserId=u.clerk_user_id,
         email=u.email,
         displayName=u.display_name,
+        voiceRepCounterEnabled=bool(u.voice_rep_counter_enabled),
+    )
+
+
+@router.patch("/preferences/voice-rep-counter", response_model=UserSyncOut)
+def patch_voice_rep_counter_preference(
+    body: VoiceRepCounterPrefIn,
+    clerk_user_id: str = Depends(require_clerk_user_id),
+    db: Session = Depends(get_db_required_session),
+) -> UserSyncOut:
+    """Persist voice rep counter opt-in (app session feedback, not push notifications)."""
+    u = db.scalars(select(User).where(User.clerk_user_id == clerk_user_id)).first()
+    if u is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found. Call POST /users/sync first.",
+        )
+    u.voice_rep_counter_enabled = body.voiceRepCounterEnabled
+    db.flush()
+    return UserSyncOut(
+        id=str(u.id),
+        clerkUserId=u.clerk_user_id,
+        email=u.email,
+        displayName=u.display_name,
+        voiceRepCounterEnabled=bool(u.voice_rep_counter_enabled),
     )
 
 

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { PushupSession } from '../components/pushupSession/PushupSession'
+import { unlockWebSpeechFromUserGesture } from '../lib/voice/useVoiceCounter'
 
 import '../components/pushupSession/pushup-session.css'
 
@@ -16,7 +17,7 @@ function ClockIcon() {
 }
 
 /**
- * Practice alone: camera + reps + optional video persisted as POST /solo/session.
+ * Practice alone: camera + reps + optional video persisted via prepare-upload → S3 PUT → complete-upload.
  * Distinct from challenge flows under /challenge/*.
  */
 export function SoloSession() {
@@ -58,7 +59,10 @@ export function SoloSession() {
         <button
           type="button"
           className="solo-choose-cta"
-          onClick={() => setMode('record')}
+          onClick={() => {
+            unlockWebSpeechFromUserGesture()
+            setMode('record')
+          }}
         >
           Start solo set →
         </button>

@@ -17,13 +17,18 @@ from app.challenges.repository import (
     ChallengeRepositoryProtocol,
     _norm_idempotency_key,
 )
+from app.challenges.challenge_video_items import (
+    build_challenge_video_item,
+    challenge_videos_page,
+)
 from app.challenges.schemas import (
     ChallengeOutcomeOut,
     ChallengeOut,
     ChallengeVideoItemOut,
+    ChallengeVideoStatsOut,
+    ChallengeVideosPageOut,
     CreateChallengeBody,
     CreateChallengeResponse,
-    LeaderboardEntryOut,
 )
 from app.clerk.backend_client import (
     challenge_notifications_enabled,
@@ -52,11 +57,11 @@ from app.challenges.acceptance import (
 )
 from app.challenges.db_repository import DbChallengeRepository
 from app.db.deps import get_challenge_repository, get_db_or_none
+from app.db.models.challenge import Challenge
 from app.db.models.challenge_attempt import ChallengeAttempt
 from app.db.models.user import User
 from app.solo.s3_storage import (
     delete_s3_object,
-    presigned_video_url,
     upload_challenge_attempt_video,
 )
 from sqlalchemy import select
@@ -122,22 +127,6 @@ def _resolve_opponent_email_for_challenge(
     if resolved is None and opponent_clerk_json is not None:
         resolved = primary_email(opponent_clerk_json)
     return resolved if resolved else None
-
-
-def _build_leaderboard(repo: ChallengeRepositoryProtocol) -> list[LeaderboardEntryOut]:
-    scores: dict[str, int] = {}
-    for r in repo.all_records():
-        if r.challenger_pushups is not None:
-            n = r.challenger_name
-            scores[n] = max(scores.get(n, 0), r.challenger_pushups)
-        if r.opponent_pushups is not None:
-            n = r.opponent_name
-            scores[n] = max(scores.get(n, 0), r.opponent_pushups)
-    sorted_entries = sorted(scores.items(), key=lambda x: -x[1])
-    return [
-        LeaderboardEntryOut(rank=i + 1, displayName=name, bestPushups=cnt)
-        for i, (name, cnt) in enumerate(sorted_entries[:50])
-    ]
 
 
 @router.post("/challenges", response_model=CreateChallengeResponse)
@@ -475,44 +464,33 @@ async def submit_attempt(
     return rec.to_out()
 
 
-@router.get("/challenges/me/videos", response_model=list[ChallengeVideoItemOut])
+@router.get("/challenges/me/videos", response_model=ChallengeVideosPageOut)
 def list_my_challenge_videos(
     db: Annotated[Session | None, Depends(get_db_or_none)],
     clerk_user_id: Annotated[str, Depends(require_clerk_user_id)],
-) -> list[ChallengeVideoItemOut]:
+) -> ChallengeVideosPageOut:
     if db is None:
-        return []
-    rows = db.scalars(
-        select(ChallengeAttempt)
+        return ChallengeVideosPageOut(
+            challengeVideos=[],
+            stats=ChallengeVideoStatsOut(total=0, wins=0, losses=0, bestReps=0),
+        )
+    ttl = int(get_video_ttl_hours() * 3600 * 2)
+    stmt = (
+        select(ChallengeAttempt, Challenge)
+        .join(Challenge, Challenge.id == ChallengeAttempt.challenge_id)
         .where(
             ChallengeAttempt.clerk_user_id == clerk_user_id,
             ChallengeAttempt.video_s3_key.isnot(None),
         )
         .order_by(ChallengeAttempt.submitted_at.desc())
-    ).all()
-    ttl = int(get_video_ttl_hours() * 3600 * 2)
+    )
+    rows = db.execute(stmt).all()
     out: list[ChallengeVideoItemOut] = []
-    for att in rows:
-        key = (att.video_s3_key or "").strip()
-        if not key:
-            continue
-        if att.participant_role not in ("challenger", "opponent"):
-            continue
-        role_o: Literal["challenger", "opponent"] = cast(
-            Literal["challenger", "opponent"],
-            att.participant_role,
-        )
-        url = presigned_video_url(key, expires_seconds=ttl) or None
-        out.append(
-            ChallengeVideoItemOut(
-                challengeId=att.challenge_id,
-                role=role_o,
-                pushupCount=att.pushup_count,
-                submittedAt=att.submitted_at,
-                videoUrl=url,
-            )
-        )
-    return out
+    for att, ch in rows:
+        item = build_challenge_video_item(att, ch, ttl)
+        if item is not None:
+            out.append(item)
+    return challenge_videos_page(out)
 
 
 @router.get("/challenges/{challenge_id}/result", response_model=ChallengeOutcomeOut)
@@ -536,8 +514,3 @@ def get_result(
     )
 
 
-@router.get("/leaderboard", response_model=list[LeaderboardEntryOut])
-def get_leaderboard(
-    repo: Annotated[ChallengeRepositoryProtocol, Depends(get_challenge_repository)],
-) -> list[LeaderboardEntryOut]:
-    return _build_leaderboard(repo)
