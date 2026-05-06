@@ -107,12 +107,24 @@ class SoloVideoBucketConstruct(Construct):
 
         origin = origins.S3BucketOrigin.with_origin_access_control(self.bucket, origin_access_control=oac)
 
-        vk_pem = Stack.of(self).node.try_get_context("soloVideoSigningPublicKeyPem")
-        vk_pem_clean = vk_pem.strip() if vk_pem and str(vk_pem).strip() else ""
+        _VALID_PEM_PREFIXES = (
+            "-----BEGIN PUBLIC KEY-----",
+            "-----BEGIN RSA PUBLIC KEY-----",
+        )
+        raw = Stack.of(self).node.try_get_context("soloVideoSigningPublicKeyPem")
+        vk_pem_clean = (str(raw).strip() if raw is not None else "") or ""
+        if vk_pem_clean and not vk_pem_clean.startswith(_VALID_PEM_PREFIXES):
+            raise ValueError(
+                "CDK context soloVideoSigningPublicKeyPem is non-empty but is not a valid PEM public key "
+                "(must start with '-----BEGIN PUBLIC KEY-----' or '-----BEGIN RSA PUBLIC KEY-----', "
+                "or omit/empty the context for unsigned playback). "
+                "Refusing to synthesize a distribution without trusted key groups when a key was provided."
+            )
+
         trusted: list[cloudfront.IKeyGroup] = []
 
         pk: cloudfront.IPublicKey | None = None
-        if vk_pem_clean.startswith("-----BEGIN PUBLIC KEY-----") or vk_pem_clean.startswith("-----BEGIN RSA PUBLIC KEY-----"):
+        if vk_pem_clean.startswith(_VALID_PEM_PREFIXES):
             pk = cloudfront.PublicKey(
                 self,
                 "VideoCfSigningPk",
@@ -127,6 +139,26 @@ class SoloVideoBucketConstruct(Construct):
                 )
             )
 
+        # Match Managed-CachingOptimized TTL + compression; add CORS headers to the cache key so
+        # simple GETs and OPTIONS preflights never share one cached object across different origins.
+        playback_cache_policy = cloudfront.CachePolicy(
+            self,
+            "VideoPlaybackCachePolicy",
+            comment=f"Video playback — CORS-vary cache key ({environment})",
+            default_ttl=Duration.seconds(86_400),
+            min_ttl=Duration.seconds(1),
+            max_ttl=Duration.seconds(31_536_000),
+            cookie_behavior=cloudfront.CacheCookieBehavior.none(),
+            header_behavior=cloudfront.CacheHeaderBehavior.allow_list(
+                "Origin",
+                "Access-Control-Request-Method",
+                "Access-Control-Request-Headers",
+            ),
+            query_string_behavior=cloudfront.CacheQueryStringBehavior.none(),
+            enable_accept_encoding_gzip=True,
+            enable_accept_encoding_brotli=True,
+        )
+
         self.distribution = cloudfront.Distribution(
             self,
             "PlaybackDistribution",
@@ -139,7 +171,7 @@ class SoloVideoBucketConstruct(Construct):
                 compress=True,
                 allowed_methods=cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
                 cached_methods=cloudfront.CachedMethods.CACHE_GET_HEAD_OPTIONS,
-                cache_policy=cloudfront.CachePolicy.CACHING_OPTIMIZED,
+                cache_policy=playback_cache_policy,
                 origin_request_policy=cloudfront.OriginRequestPolicy.CORS_S3_ORIGIN,
                 trusted_key_groups=trusted if trusted else None,
             ),
@@ -186,5 +218,7 @@ class SoloVideoBucketConstruct(Construct):
 
             Annotations.of(self).add_info(
                 "soloVideoSigningPublicKeyPem CDK context is empty — playback distribution accepts unsigned viewers. "
+                "If set, the value must be PEM starting with '-----BEGIN PUBLIC KEY-----' or "
+                "'-----BEGIN RSA PUBLIC KEY-----' (otherwise synthesis fails). "
                 "For production signed URLs pass the PEM-backed cloudfront_rsa_public_key.pem from openssl."
             )

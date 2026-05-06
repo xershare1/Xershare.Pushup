@@ -19,6 +19,12 @@ export function VideoModalPlayer({ url, videoClassName, wrapClassName }: Props) 
   const triedAutoplayRef = useRef(false)
   const [loadState, setLoadState] = useState<'loading' | 'ready' | 'error'>('loading')
   const [buffering, setBuffering] = useState(false)
+  const [syncedUrl, setSyncedUrl] = useState(url)
+  if (url !== syncedUrl) {
+    setSyncedUrl(url)
+    setLoadState('loading')
+    setBuffering(false)
+  }
 
   useEffect(() => {
     const el = videoRef.current
@@ -45,7 +51,6 @@ export function VideoModalPlayer({ url, videoClassName, wrapClassName }: Props) 
     }
 
     const onWaiting = () => {
-      if (el.readyState < 3) return
       setBuffering(true)
     }
 

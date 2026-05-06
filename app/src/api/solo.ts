@@ -49,6 +49,52 @@ function parseFastApiDetail(text: string): string {
   return text.trim() || 'Request failed'
 }
 
+const STORAGE_ERROR_MSG_MAX = 200
+
+/** Safe message for UI from S3/storage XHR bodies (avoid raw XML/HTML pages). */
+function sanitizeStorageErrorMessage(responseText: string, statusText: string): string {
+  const fallback = (statusText || '').trim() || 'Upload to storage failed.'
+  const raw = (responseText || '').trim()
+  if (!raw) return fallback
+
+  try {
+    const j = JSON.parse(raw) as Record<string, unknown>
+    if (typeof j.message === 'string' && j.message.trim()) {
+      return truncateErrorDisplay(j.message.trim(), STORAGE_ERROR_MSG_MAX)
+    }
+    if (typeof j.detail === 'string' && j.detail.trim()) {
+      return truncateErrorDisplay(j.detail.trim(), STORAGE_ERROR_MSG_MAX)
+    }
+    if (Array.isArray(j.detail) && j.detail[0] && typeof j.detail[0] === 'object') {
+      const msg = (j.detail[0] as { msg?: string }).msg
+      if (typeof msg === 'string' && msg.trim()) {
+        return truncateErrorDisplay(msg.trim(), STORAGE_ERROR_MSG_MAX)
+      }
+    }
+  } catch {
+    /* not JSON */
+  }
+
+  const noTags = raw.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+  if (!noTags) return fallback
+  return truncateErrorDisplay(noTags, STORAGE_ERROR_MSG_MAX)
+}
+
+function truncateErrorDisplay(s: string, max: number): string {
+  const t = stripNonPrintableExceptTab(s).trim()
+  if (t.length <= max) return t
+  return `${t.slice(0, max - 1)}…`
+}
+
+function stripNonPrintableExceptTab(s: string): string {
+  let out = ''
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i)
+    if (c === 9 || c >= 32) out += s[i]!
+  }
+  return out
+}
+
 function putBlobToS3(
   uploadUrl: string,
   blob: Blob,
@@ -71,8 +117,8 @@ function putBlobToS3(
         resolve()
         return
       }
-      const text = xhr.responseText || xhr.statusText
-      reject(new HttpError(xhr.status, text || 'Upload to storage failed.'))
+      const msg = sanitizeStorageErrorMessage(xhr.responseText, xhr.statusText)
+      reject(new HttpError(xhr.status, msg))
     }
     xhr.onerror = () => reject(new HttpError(0, 'Network error while uploading to storage.'))
     xhr.onabort = () => reject(new HttpError(0, 'Upload cancelled.'))
@@ -130,8 +176,6 @@ export async function createSoloSession(
       })
     }
 
-    onPhaseChange?.('uploading')
-
     const prepared = await jsonFetchAuthed<SoloSessionPrepareResponse>(
       getToken,
       '/solo/session/prepare-upload',
@@ -157,6 +201,7 @@ export async function createSoloSession(
     const multipart = prepared.uploadStrategy === 'multipart'
 
     if (multipart) {
+      onPhaseChange?.('uploading')
       const assembled = await soloMultipartUploadToComplete({
         getToken,
         sessionId: prepared.sessionId,
@@ -192,6 +237,7 @@ export async function createSoloSession(
       throw new Error('Server did not return an upload URL.')
     }
 
+    onPhaseChange?.('uploading')
     await putBlobToS3(uploadUrl, video!, prepared.uploadHeaders, progress)
     onPhaseChange?.('processing')
 

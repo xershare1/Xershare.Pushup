@@ -277,19 +277,6 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </Icon>
               }
             />
-            <NavItem
-              to="/stats"
-              label="Stats"
-              icon={
-                <Icon>
-                  <path
-                    fill="currentColor"
-                    d="M12 3 4 8v2h2v9h4v-5h4v5h4v-9h2V8l-8-5Zm0 2.2L16.5 8h-9L12 5.2Z"
-                    opacity="0.9"
-                  />
-                </Icon>
-              }
-            />
           </div>
 
           <div>

@@ -1,7 +1,7 @@
 import { useAuth } from '@clerk/react'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { useVoiceRepCounterPreference } from '../../context/VoiceRepCounterPreferenceContext'
+import { useVoiceRepCounterPreference } from '../../context/useVoiceRepCounterPreference'
 import { fetchSoloSessions } from '../../api/solo'
 import { playCountdownBeep, playLastTenFinalBeep, playLastTenTickBeep } from '../../lib/audio/sessionAudio'
 import { useVoiceCounter } from '../../lib/voice/useVoiceCounter'

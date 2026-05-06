@@ -292,11 +292,9 @@ export function SessionResults({
               <p className="pushup-results-solo-error" role="alert">
                 Could not save: {soloError}
               </p>
-              {saveBannerRecording ? (
-                <button type="button" className="pushup-results-solo-btn-ghost" onClick={retryCloudSave}>
-                  Retry upload
-                </button>
-              ) : null}
+              <button type="button" className="pushup-results-solo-btn-ghost" onClick={retryCloudSave}>
+                {saveBannerRecording ? 'Retry upload' : 'Retry save'}
+              </button>
             </div>
           ) : null}
 
@@ -383,11 +381,9 @@ export function SessionResults({
           <p className="banner banner-error" role="alert">
             Could not save session: {soloError}
           </p>
-          {saveBannerRecording ? (
-            <button type="button" className="btn btn-secondary pushup-results-cta-secondary" onClick={retryCloudSave}>
-              Retry upload
-            </button>
-          ) : null}
+          <button type="button" className="btn btn-secondary pushup-results-cta-secondary" onClick={retryCloudSave}>
+            {saveBannerRecording ? 'Retry upload' : 'Retry save'}
+          </button>
         </div>
       ) : null}
 

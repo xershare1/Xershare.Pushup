@@ -11,7 +11,7 @@ export function Spinner({ size = 'md', className = '', 'aria-label': ariaLabel }
   const sm = size === 'sm' ? ' app-spinner--sm' : ''
   const decorative = !ariaLabel
   return (
-    <div
+    <span
       className={`app-spinner${sm} ${className}`.trim()}
       aria-hidden={decorative}
       aria-label={ariaLabel}

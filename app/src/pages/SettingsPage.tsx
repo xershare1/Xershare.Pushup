@@ -1,5 +1,5 @@
 import { PageLoading } from '../components/ui/PageLoading'
-import { useVoiceRepCounterPreference } from '../context/VoiceRepCounterPreferenceContext'
+import { useVoiceRepCounterPreference } from '../context/useVoiceRepCounterPreference'
 
 import './SettingsPage.css'
 

@@ -134,7 +134,7 @@ function wrapHint(
     if (ctx.measureText(test).width > maxW && line) {
       ctx.fillText(line, x, y)
       line = words[i]
-      y -= lineHeight
+      y += lineHeight
     } else {
       line = test
     }

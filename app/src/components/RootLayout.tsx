@@ -2,7 +2,7 @@ import { useAuth } from '@clerk/react'
 import { Outlet } from 'react-router-dom'
 
 import { AppShell } from './AppShell'
-import { VoiceRepCounterPreferenceProvider } from '../context/VoiceRepCounterPreferenceContext'
+import { VoiceRepCounterPreferenceProvider } from '../context/VoiceRepCounterPreferenceProvider'
 import { PublicChrome } from './PublicChrome'
 import { UserSyncGate } from './UserSyncGate'
 import { PageLoading } from './ui/PageLoading'

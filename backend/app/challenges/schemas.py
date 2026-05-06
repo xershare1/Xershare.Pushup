@@ -95,6 +95,9 @@ class LeaderboardEntryOut(BaseModel):
     rank: int
     displayName: str
     bestPushups: int
+    wins: int
+    ties: int
+    losses: int
 
 
 class OkOut(BaseModel):

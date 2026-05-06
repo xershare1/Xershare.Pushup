@@ -1,31 +1,14 @@
 import { useAuth } from '@clerk/react'
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 
 import { patchVoiceRepCounterPreference, syncUser } from '../api/users'
-
-type VoiceRepCounterPreferenceContextValue = {
-  voiceRepCounterEnabled: boolean
-  loading: boolean
-  refresh: () => Promise<void>
-  setVoiceRepCounterEnabled: (value: boolean) => Promise<void>
-}
-
-const VoiceRepCounterPreferenceContext = createContext<VoiceRepCounterPreferenceContextValue | null>(
-  null,
-)
+import { VoiceRepCounterPreferenceContext } from './voiceRepCounterPreferenceContext'
 
 export function VoiceRepCounterPreferenceProvider({ children }: { children: ReactNode }) {
   const { isSignedIn, getToken } = useAuth()
   const [voiceRepCounterEnabled, setVoiceRepCounterEnabledState] = useState(false)
   const [loading, setLoading] = useState(true)
+  const persistQueueRef = useRef(Promise.resolve())
 
   const refresh = useCallback(async () => {
     if (!isSignedIn) {
@@ -51,11 +34,15 @@ export function VoiceRepCounterPreferenceProvider({ children }: { children: Reac
   const setVoiceRepCounterEnabled = useCallback(
     async (value: boolean) => {
       setVoiceRepCounterEnabledState(value)
-      try {
-        await patchVoiceRepCounterPreference(getToken, value)
-      } catch {
-        await refresh()
-      }
+      const run = persistQueueRef.current.catch(() => {}).then(async () => {
+        try {
+          await patchVoiceRepCounterPreference(getToken, value)
+        } catch {
+          await refresh()
+        }
+      })
+      persistQueueRef.current = run
+      await run
     },
     [getToken, refresh],
   )
@@ -75,14 +62,4 @@ export function VoiceRepCounterPreferenceProvider({ children }: { children: Reac
       {children}
     </VoiceRepCounterPreferenceContext.Provider>
   )
-}
-
-export function useVoiceRepCounterPreference(): VoiceRepCounterPreferenceContextValue {
-  const ctx = useContext(VoiceRepCounterPreferenceContext)
-  if (!ctx) {
-    throw new Error(
-      'useVoiceRepCounterPreference must be used within VoiceRepCounterPreferenceProvider',
-    )
-  }
-  return ctx
 }

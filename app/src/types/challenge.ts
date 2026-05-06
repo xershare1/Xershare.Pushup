@@ -95,4 +95,7 @@ export type LeaderboardEntry = {
   rank: number
   displayName: string
   bestPushups: number
+  wins: number
+  ties: number
+  losses: number
 }

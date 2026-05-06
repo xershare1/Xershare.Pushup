@@ -151,7 +151,8 @@ export function Admin() {
           Leaderboard (admin)
         </h2>
         <p className="muted" style={{ margin: 0 }}>
-          Top performers by best verified rep count — same data formerly at the public route.
+          Rankings from completed challenges: wins, then losses (fewer is better), ties, then best reps in a single
+          game.
         </p>
         {leaderboardLoading ? (
           <PageLoading layout="inline" message="Loading leaderboard…" messageClassName="muted" />
@@ -173,6 +174,15 @@ export function Admin() {
                     Display name
                   </th>
                   <th style={{ textAlign: 'right', padding: '8px 6px', borderBottom: '1px solid var(--border, #2a3140)' }}>
+                    W
+                  </th>
+                  <th style={{ textAlign: 'right', padding: '8px 6px', borderBottom: '1px solid var(--border, #2a3140)' }}>
+                    T
+                  </th>
+                  <th style={{ textAlign: 'right', padding: '8px 6px', borderBottom: '1px solid var(--border, #2a3140)' }}>
+                    L
+                  </th>
+                  <th style={{ textAlign: 'right', padding: '8px 6px', borderBottom: '1px solid var(--border, #2a3140)' }}>
                     Best reps
                   </th>
                 </tr>
@@ -183,6 +193,15 @@ export function Admin() {
                     <td style={{ padding: '6px', borderBottom: '1px solid var(--border, #2a3140)' }}>{row.rank}</td>
                     <td style={{ padding: '6px', borderBottom: '1px solid var(--border, #2a3140)' }}>
                       {row.displayName}
+                    </td>
+                    <td style={{ padding: '6px', textAlign: 'right', borderBottom: '1px solid var(--border, #2a3140)' }}>
+                      {row.wins}
+                    </td>
+                    <td style={{ padding: '6px', textAlign: 'right', borderBottom: '1px solid var(--border, #2a3140)' }}>
+                      {row.ties}
+                    </td>
+                    <td style={{ padding: '6px', textAlign: 'right', borderBottom: '1px solid var(--border, #2a3140)' }}>
+                      {row.losses}
                     </td>
                     <td style={{ padding: '6px', textAlign: 'right', borderBottom: '1px solid var(--border, #2a3140)' }}>
                       {row.bestPushups}

@@ -82,7 +82,7 @@ export async function patchVoiceRepCounterPreference(
 
   const token = await getToken()
   if (!token) {
-    return null
+    throw new Error('Sign in to update voice preference.')
   }
 
   return jsonFetchAuthed<UserSyncResponse>(getToken, '/users/preferences/voice-rep-counter', {
