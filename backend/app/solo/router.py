@@ -475,7 +475,7 @@ async def solo_multipart_complete(
 
 
 @router.post("/session/multipart/abort", status_code=status.HTTP_204_NO_CONTENT)
-async def solo_multipart_abort(
+def solo_multipart_abort(
     payload: SoloMultipartAbortIn,
     clerk_user_id: str = Depends(require_clerk_user_id),
     db: Session = Depends(get_db_required_session),
@@ -483,8 +483,7 @@ async def solo_multipart_abort(
     user_uuid = get_or_create_user_by_clerk_id(db, clerk_user_id)
     sid = _solo_parse_session_uuid(payload.sessionId)
     expected_key = solo_session_video_key(user_uuid, sid)
-    await asyncio.to_thread(
-        multipart_abort,
+    multipart_abort(
         object_key=expected_key,
         upload_id=payload.uploadId,
     )
@@ -492,7 +491,7 @@ async def solo_multipart_abort(
 
 
 @router.post("/session/complete-upload", response_model=SoloSessionOut)
-async def complete_solo_session_upload(
+def complete_solo_session_upload(
     payload: SoloSessionCompleteUploadIn,
     clerk_user_id: str = Depends(require_clerk_user_id),
     db: Session = Depends(get_db_required_session),
@@ -544,7 +543,7 @@ async def complete_solo_session_upload(
         key = solo_session_video_key(user_uuid, business_session_id)
         t_head = time.perf_counter()
         try:
-            meta = await asyncio.to_thread(head_solo_video, key)
+            meta = head_solo_video(key)
         except Exception:
             logger.exception(
                 "solo_session_head_failed",

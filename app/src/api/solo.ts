@@ -138,13 +138,26 @@ export type CreateSoloSessionOptions = {
   onPhaseChange?: (phase: SoloCloudPhase) => void
 }
 
+/** In-flight cloud save per logical attempt (session id + retry nonce). Strict Mode / double effects join the same Promise. */
+const soloCreateInFlight = new Map<string, Promise<SoloSessionResponse>>()
+
+function soloCreateFlightKey(sessionId: string, saveRetryNonce?: number): string {
+  return `${sessionId}:${saveRetryNonce ?? 0}`
+}
+
 /**
  * Persist a solo set (reps + optional recorded video). Requires Clerk session JWT.
  * Recordings upload via presigned PUT or multipart UploadPart directly to S3, then finalize on the API.
  */
 export async function createSoloSession(
   getToken: ClerkGetToken,
-  params: { reps: number; video?: Blob | null; sessionId?: string },
+  params: {
+    reps: number
+    video?: Blob | null
+    sessionId?: string
+    /** Bumps with "Retry save"; new key so a failed attempt can run again. */
+    saveRetryNonce?: number
+  },
   options?: CreateSoloSessionOptions,
 ): Promise<SoloSessionResponse> {
   if (isMockApiEnabled()) {
@@ -155,6 +168,38 @@ export async function createSoloSession(
     }
   }
 
+  const sessionId = params.sessionId
+  if (!sessionId) {
+    throw new Error('Missing session id for solo save.')
+  }
+
+  const flightKey = soloCreateFlightKey(sessionId, params.saveRetryNonce)
+  const joined = soloCreateInFlight.get(flightKey)
+  if (joined) {
+    console.info('[solo] createSoloSession single-flight join', {
+      sessionId,
+      saveRetryNonce: params.saveRetryNonce ?? 0,
+    })
+    return joined
+  }
+
+  const promise = runCreateSoloSession(getToken, params, options).finally(() => {
+    soloCreateInFlight.delete(flightKey)
+  })
+  soloCreateInFlight.set(flightKey, promise)
+  return promise
+}
+
+async function runCreateSoloSession(
+  getToken: ClerkGetToken,
+  params: {
+    reps: number
+    video?: Blob | null
+    sessionId?: string
+    saveRetryNonce?: number
+  },
+  options?: CreateSoloSessionOptions,
+): Promise<SoloSessionResponse> {
   const token = (await getToken()) ?? null
   if (!token) {
     throw new Error('Sign in to save your session.')
@@ -162,11 +207,7 @@ export async function createSoloSession(
 
   const progress = options?.onUploadProgress
   const onPhaseChange = options?.onPhaseChange
-  const sessionId = params.sessionId
-  if (!sessionId) {
-    throw new Error('Missing session id for solo save.')
-  }
-
+  const sessionId = params.sessionId!
   const video = params.video
   const hasVideo = Boolean(video && video.size > 0)
   const startedAt = performance.now()

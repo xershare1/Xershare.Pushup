@@ -1,5 +1,14 @@
 import { useAuth } from '@clerk/react'
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, startTransition, type FC } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  startTransition,
+  type FC,
+} from 'react'
 import type { CountUpProps } from 'react-countup'
 import CountUpImport from 'react-countup'
 import { motion } from 'framer-motion'
@@ -115,6 +124,28 @@ export function SessionResults({
     getTokenRef.current = getToken
   }, [sessionRecording, reps, getToken])
 
+  /** Strict Mode / single-flight: progress + phase always hit the latest effect's handlers. */
+  const soloSaveDispatchRef = useRef<{
+    onUploadProgress: (loaded: number, total: number) => void
+    onPhaseChange: (phase: SoloCloudPhase) => void
+  }>({
+    onUploadProgress: (loaded, total) => {
+      void loaded
+      void total
+    },
+    onPhaseChange: (phase: SoloCloudPhase) => {
+      void phase
+    },
+  })
+
+  const onSoloUploadProgressBridge = useCallback((loaded: number, total: number) => {
+    soloSaveDispatchRef.current.onUploadProgress(loaded, total)
+  }, [])
+
+  const onSoloPhaseChangeBridge = useCallback((phase: SoloCloudPhase) => {
+    soloSaveDispatchRef.current.onPhaseChange(phase)
+  }, [])
+
   /** Abandon multipart if the tab is closed/navigated mid-upload (avoid effect cleanup races). */
   useEffect(() => {
     const onPageHide = () => {
@@ -157,6 +188,25 @@ export function SessionResults({
       setSoloCloudPhase(recordingRef.current && recordingRef.current.size > 0 ? 'uploading' : null)
     })
 
+    soloSaveDispatchRef.current = {
+      onUploadProgress: (loaded, total) => {
+        if (cancelled || total <= 0) return
+        const pct = Math.min(100, Math.round((loaded / total) * 100))
+        startTransition(() => setUploadPercent(pct))
+      },
+      onPhaseChange: (phase) => {
+        if (cancelled) return
+        console.info('[solo-ui] phase=', phase, {
+          sessionId: soloSyncKey,
+          msSinceStart: Math.round(performance.now() - startedAt),
+        })
+        startTransition(() => {
+          setSoloCloudPhase(phase)
+          if (phase === 'processing') setUploadPercent(null)
+        })
+      },
+    }
+
     void (async () => {
       try {
         const result = await createSoloSession(
@@ -165,24 +215,11 @@ export function SessionResults({
             reps: repsRef.current,
             video: recordingRef.current,
             sessionId: soloSyncKey,
+            saveRetryNonce: saveRetryNonce,
           },
           {
-            onUploadProgress: (loaded, total) => {
-              if (cancelled || total <= 0) return
-              const pct = Math.min(100, Math.round((loaded / total) * 100))
-              startTransition(() => setUploadPercent(pct))
-            },
-            onPhaseChange: (phase) => {
-              if (cancelled) return
-              console.info('[solo-ui] phase=', phase, {
-                sessionId: soloSyncKey,
-                msSinceStart: Math.round(performance.now() - startedAt),
-              })
-              startTransition(() => {
-                setSoloCloudPhase(phase)
-                if (phase === 'processing') setUploadPercent(null)
-              })
-            },
+            onUploadProgress: onSoloUploadProgressBridge,
+            onPhaseChange: onSoloPhaseChangeBridge,
           },
         )
         if (cancelled) return
@@ -212,7 +249,7 @@ export function SessionResults({
     return () => {
       cancelled = true
     }
-  }, [soloSyncKey, saveRetryNonce])
+  }, [soloSyncKey, saveRetryNonce, onSoloUploadProgressBridge, onSoloPhaseChangeBridge])
 
   useEffect(() => {
     if (!sessionRecording) {
