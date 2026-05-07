@@ -140,6 +140,15 @@ export function SessionResults({
     if (!soloSyncKey) return
 
     let cancelled = false
+    const startedAt = performance.now()
+    const recordingBytes = recordingRef.current?.size ?? 0
+    console.info('[solo-ui] save start', {
+      sessionId: soloSyncKey,
+      reps: repsRef.current,
+      hasVideo: recordingBytes > 0,
+      videoBytes: recordingBytes,
+      retryNonce: saveRetryNonce,
+    })
     startTransition(() => {
       setSoloStatus('saving')
       setSoloError(null)
@@ -165,6 +174,10 @@ export function SessionResults({
             },
             onPhaseChange: (phase) => {
               if (cancelled) return
+              console.info('[solo-ui] phase=', phase, {
+                sessionId: soloSyncKey,
+                msSinceStart: Math.round(performance.now() - startedAt),
+              })
               startTransition(() => {
                 setSoloCloudPhase(phase)
                 if (phase === 'processing') setUploadPercent(null)
@@ -173,12 +186,22 @@ export function SessionResults({
           },
         )
         if (cancelled) return
+        console.info('[solo-ui] save success', {
+          sessionId: soloSyncKey,
+          totalMs: Math.round(performance.now() - startedAt),
+          serverVideoUrl: Boolean(result.videoUrl),
+        })
         setSoloStatus('saved')
         setSoloCloudPhase(null)
         setServerVideoUrl(result.videoUrl)
         setUploadPercent(null)
       } catch (e) {
         if (cancelled) return
+        console.warn('[solo-ui] save error', {
+          sessionId: soloSyncKey,
+          totalMs: Math.round(performance.now() - startedAt),
+          err: e instanceof Error ? e.message : String(e),
+        })
         setSoloStatus('error')
         setSoloCloudPhase(null)
         setSoloError(formatError(e))

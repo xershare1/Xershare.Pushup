@@ -95,6 +95,8 @@ function stripNonPrintableExceptTab(s: string): string {
   return out
 }
 
+const SIMPLE_PUT_TIMEOUT_MS = 120_000
+
 function putBlobToS3(
   uploadUrl: string,
   blob: Blob,
@@ -104,6 +106,7 @@ function putBlobToS3(
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
     xhr.open('PUT', uploadUrl)
+    xhr.timeout = SIMPLE_PUT_TIMEOUT_MS
     for (const [k, v] of Object.entries(headers)) {
       xhr.setRequestHeader(k, v)
     }
@@ -122,6 +125,8 @@ function putBlobToS3(
     }
     xhr.onerror = () => reject(new HttpError(0, 'Network error while uploading to storage.'))
     xhr.onabort = () => reject(new HttpError(0, 'Upload cancelled.'))
+    xhr.ontimeout = () =>
+      reject(new HttpError(0, `Upload to storage timed out after ${SIMPLE_PUT_TIMEOUT_MS}ms`))
     xhr.send(blob)
   })
 }
@@ -164,18 +169,35 @@ export async function createSoloSession(
 
   const video = params.video
   const hasVideo = Boolean(video && video.size > 0)
+  const startedAt = performance.now()
+  const videoBytes = hasVideo ? video!.size : 0
+  console.info('[solo] createSoloSession start', {
+    sessionId,
+    reps: params.reps,
+    hasVideo,
+    videoBytes,
+  })
 
   try {
     if (!hasVideo) {
-      return await jsonFetchAuthed<SoloSessionResponse>(getToken, '/solo/session/complete-upload', {
+      console.info('[solo] phase=complete-upload-no-video', { sessionId })
+      const out = await jsonFetchAuthed<SoloSessionResponse>(getToken, '/solo/session/complete-upload', {
         method: 'POST',
         body: JSON.stringify({
           sessionId,
           reps: params.reps,
         }),
       })
+      console.info('[solo] createSoloSession done', {
+        sessionId,
+        totalMs: Math.round(performance.now() - startedAt),
+        videoBytes: 0,
+      })
+      return out
     }
 
+    const tPrepare = performance.now()
+    console.info('[solo] phase=prepare-upload start', { sessionId, videoBytes })
     const prepared = await jsonFetchAuthed<SoloSessionPrepareResponse>(
       getToken,
       '/solo/session/prepare-upload',
@@ -189,8 +211,18 @@ export async function createSoloSession(
         }),
       },
     )
+    console.info('[solo] phase=prepare-upload done', {
+      sessionId,
+      ms: Math.round(performance.now() - tPrepare),
+      strategy: prepared.uploadStrategy,
+      idempotentVideoUrl: Boolean(prepared.videoUrl),
+    })
 
     if (prepared.videoUrl) {
+      console.info('[solo] createSoloSession done (idempotent prepare hit)', {
+        sessionId,
+        totalMs: Math.round(performance.now() - startedAt),
+      })
       return {
         sessionId: prepared.sessionId,
         reps: prepared.reps,
@@ -202,6 +234,8 @@ export async function createSoloSession(
 
     if (multipart) {
       onPhaseChange?.('uploading')
+      console.info('[solo] phase=multipart start', { sessionId, videoBytes })
+      const tMpu = performance.now()
       const assembled = await soloMultipartUploadToComplete({
         getToken,
         sessionId: prepared.sessionId,
@@ -212,8 +246,17 @@ export async function createSoloSession(
         maxConcurrency: prepared.multipartMaxConcurrency ?? undefined,
         onUploadProgress: progress,
       })
+      console.info('[solo] phase=multipart done', {
+        sessionId,
+        ms: Math.round(performance.now() - tMpu),
+        kind: assembled.kind,
+      })
 
       if (assembled.kind === 'already_finished') {
+        console.info('[solo] createSoloSession done (multipart already_finished)', {
+          sessionId,
+          totalMs: Math.round(performance.now() - startedAt),
+        })
         return {
           sessionId: assembled.sessionId,
           reps: assembled.reps,
@@ -222,7 +265,9 @@ export async function createSoloSession(
       }
 
       onPhaseChange?.('processing')
-      return await jsonFetchAuthed<SoloSessionResponse>(getToken, '/solo/session/complete-upload', {
+      console.info('[solo] phase=complete-upload start', { sessionId })
+      const tComplete = performance.now()
+      const out = await jsonFetchAuthed<SoloSessionResponse>(getToken, '/solo/session/complete-upload', {
         method: 'POST',
         body: JSON.stringify({
           sessionId: prepared.sessionId,
@@ -230,6 +275,16 @@ export async function createSoloSession(
           contentType: video!.type || 'video/webm',
         }),
       })
+      console.info('[solo] phase=complete-upload done', {
+        sessionId,
+        ms: Math.round(performance.now() - tComplete),
+      })
+      console.info('[solo] createSoloSession done', {
+        sessionId,
+        totalMs: Math.round(performance.now() - startedAt),
+        videoBytes,
+      })
+      return out
     }
 
     const uploadUrl = prepared.uploadUrl
@@ -238,10 +293,18 @@ export async function createSoloSession(
     }
 
     onPhaseChange?.('uploading')
+    console.info('[solo] phase=simple-put start', { sessionId, videoBytes })
+    const tPut = performance.now()
     await putBlobToS3(uploadUrl, video!, prepared.uploadHeaders, progress)
+    console.info('[solo] phase=simple-put done', {
+      sessionId,
+      ms: Math.round(performance.now() - tPut),
+    })
     onPhaseChange?.('processing')
 
-    return await jsonFetchAuthed<SoloSessionResponse>(getToken, '/solo/session/complete-upload', {
+    console.info('[solo] phase=complete-upload start', { sessionId })
+    const tComplete = performance.now()
+    const out = await jsonFetchAuthed<SoloSessionResponse>(getToken, '/solo/session/complete-upload', {
       method: 'POST',
       body: JSON.stringify({
         sessionId: prepared.sessionId,
@@ -249,7 +312,22 @@ export async function createSoloSession(
         contentType: video!.type || 'video/webm',
       }),
     })
+    console.info('[solo] phase=complete-upload done', {
+      sessionId,
+      ms: Math.round(performance.now() - tComplete),
+    })
+    console.info('[solo] createSoloSession done', {
+      sessionId,
+      totalMs: Math.round(performance.now() - startedAt),
+      videoBytes,
+    })
+    return out
   } catch (e) {
+    console.warn('[solo] createSoloSession error', {
+      sessionId,
+      totalMs: Math.round(performance.now() - startedAt),
+      err: e instanceof Error ? e.message : String(e),
+    })
     if (e instanceof HttpError) {
       throw new HttpError(e.status, parseFastApiDetail(e.message))
     }
