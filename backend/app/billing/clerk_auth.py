@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import time
 
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt import PyJWKClient
 
@@ -57,6 +59,7 @@ def clerk_user_id_from_token(token: str) -> str:
 
 
 async def require_clerk_user_id(
+    request: Request,
     creds: HTTPAuthorizationCredentials | None = Depends(_bearer),
 ) -> str:
     if creds is None or (creds.scheme or "").lower() != "bearer":
@@ -64,4 +67,13 @@ async def require_clerk_user_id(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing Authorization Bearer token",
         )
-    return clerk_user_id_from_token(creds.credentials)
+    t0 = time.perf_counter()
+    try:
+        user_id = await asyncio.to_thread(clerk_user_id_from_token, creds.credentials)
+    finally:
+        setattr(
+            request.state,
+            "clerk_jwt_verify_ms",
+            int((time.perf_counter() - t0) * 1000),
+        )
+    return user_id

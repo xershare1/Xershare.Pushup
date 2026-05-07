@@ -213,9 +213,9 @@ export function PushupSession({ onBack, variant = 'default', onSessionComplete }
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-            frameRate: { ideal: 30 },
+            width: { ideal: 960 },
+            height: { ideal: 540 },
+            frameRate: { ideal: 24 },
           },
           audio: false,
         })
@@ -355,7 +355,7 @@ export function PushupSession({ onBack, variant = 'default', onSessionComplete }
     ro.observe(wrap)
 
     const canvasStream =
-      typeof canvas.captureStream === 'function' ? canvas.captureStream(30) : null
+      typeof canvas.captureStream === 'function' ? canvas.captureStream(24) : null
     const streamToRecord = canvasStream ?? camStream
 
     const preferredMp4 = [
@@ -379,7 +379,8 @@ export function PushupSession({ onBack, variant = 'default', onSessionComplete }
       mime = 'video/webm'
     }
 
-    const TARGET_VIDEO_BPS = 2_500_000
+    /** Roadmap ~3–5 MB / min class target for Solo; overlay legibility first. */
+    const TARGET_VIDEO_BPS = 1_600_000
 
     let recorder: MediaRecorder
     try {

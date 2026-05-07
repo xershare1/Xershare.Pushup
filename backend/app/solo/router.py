@@ -8,7 +8,7 @@ import time
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from starlette.responses import Response
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -57,6 +57,36 @@ from app.solo.video_playback import playback_url_for_video_key
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/solo", tags=["solo"])
+
+
+def _log_solo_prepare_timing(
+    *,
+    request: Request,
+    session_id: str,
+    user_id: str,
+    video_bytes: int,
+    strategy: str,
+    user_lookup_ms: int,
+    existing_query_ms: int,
+    presign_ms: int,
+    t_handler0: float,
+) -> None:
+    total_ms = int((time.perf_counter() - t_handler0) * 1000)
+    jwt_ms = getattr(request.state, "clerk_jwt_verify_ms", None)
+    logger.info(
+        "solo_session_prepare_timing",
+        extra={
+            "session_id": session_id,
+            "user_id": user_id,
+            "video_bytes": video_bytes,
+            "strategy": strategy,
+            "clerk_jwt_verify_ms": jwt_ms,
+            "user_lookup_ms": user_lookup_ms,
+            "existing_query_ms": existing_query_ms,
+            "presign_ms": presign_ms,
+            "total_handler_ms": total_ms,
+        },
+    )
 
 
 def _video_playback_ttl_seconds(expires_at: datetime, *, now: datetime | None = None) -> int:
@@ -177,6 +207,7 @@ def _solo_idempotent_prepare_out(existing: SoloSession, business_session_id: uui
 
 @router.post("/session/prepare-upload", response_model=SoloSessionPrepareUploadOut)
 def prepare_solo_session_upload(
+    request: Request,
     payload: SoloSessionPrepareUploadIn,
     clerk_user_id: str = Depends(require_clerk_user_id),
     db: Session = Depends(get_db_required_session),
@@ -185,21 +216,41 @@ def prepare_solo_session_upload(
     Presigned URLs for browser-direct S3 upload (single PUT or multipart via follow-up endpoints).
     Idempotent: if the session already exists, returns ``videoUrl``.
     """
+    t_handler0 = time.perf_counter()
     _solo_common_upload_constraints(payload.reps, payload.videoSizeBytes)
 
+    t_user0 = time.perf_counter()
     user_uuid = get_or_create_user_by_clerk_id(db, clerk_user_id)
+    user_lookup_ms = int((time.perf_counter() - t_user0) * 1000)
+
     parsed = _parse_client_session_id(payload.sessionId)
     business_session_id = parsed if parsed is not None else uuid.uuid4()
     threshold = get_solo_multipart_threshold_bytes()
+    sid_str = str(business_session_id)
 
+    t_exist0 = time.perf_counter()
     existing = db.scalar(
         select(SoloSession).where(
             SoloSession.user_id == user_uuid,
             SoloSession.session_id == business_session_id,
         )
     )
+    existing_query_ms = int((time.perf_counter() - t_exist0) * 1000)
+
     if existing is not None:
-        return _solo_idempotent_prepare_out(existing, business_session_id, user_uuid)
+        out = _solo_idempotent_prepare_out(existing, business_session_id, user_uuid)
+        _log_solo_prepare_timing(
+            request=request,
+            session_id=sid_str,
+            user_id=str(user_uuid),
+            video_bytes=payload.videoSizeBytes,
+            strategy="idempotent_existing",
+            user_lookup_ms=user_lookup_ms,
+            existing_query_ms=existing_query_ms,
+            presign_ms=0,
+            t_handler0=t_handler0,
+        )
+        return out
 
     if payload.videoSizeBytes >= threshold:
         if not get_aws_s3_bucket():
@@ -207,14 +258,14 @@ def prepare_solo_session_upload(
         logger.info(
             "solo_session_prepare_multipart_strategy",
             extra={
-                "session_id": str(business_session_id),
+                "session_id": sid_str,
                 "user_id": str(user_uuid),
                 "video_bytes": payload.videoSizeBytes,
                 "multipart_threshold_bytes": threshold,
             },
         )
-        return SoloSessionPrepareUploadOut(
-            sessionId=str(business_session_id),
+        out = SoloSessionPrepareUploadOut(
+            sessionId=sid_str,
             reps=payload.reps,
             videoUrl=None,
             uploadUrl=None,
@@ -224,14 +275,29 @@ def prepare_solo_session_upload(
             multipartRecommendedPartBytes=RECOMMENDED_SOLO_MULTIPART_CHUNK_BYTES,
             multipartMaxConcurrency=DEFAULT_SOLO_MULTIPART_CONCURRENCY,
         )
+        _log_solo_prepare_timing(
+            request=request,
+            session_id=sid_str,
+            user_id=str(user_uuid),
+            video_bytes=payload.videoSizeBytes,
+            strategy="multipart_strategy",
+            user_lookup_ms=user_lookup_ms,
+            existing_query_ms=existing_query_ms,
+            presign_ms=0,
+            t_handler0=t_handler0,
+        )
+        return out
 
+    presign_ms = 0
     try:
+        t_presign0 = time.perf_counter()
         _, upload_url, headers = presigned_put_solo_video_url(
             user_id=user_uuid,
             session_id=business_session_id,
             content_type=payload.contentType,
             expires_seconds=3600,
         )
+        presign_ms = int((time.perf_counter() - t_presign0) * 1000)
     except ValueError as e:
         msg = str(e)
         if "AWS_S3_BUCKET" in msg or "not set" in msg.lower():
@@ -244,14 +310,14 @@ def prepare_solo_session_upload(
     logger.info(
         "solo_session_prepare_upload",
         extra={
-            "session_id": str(business_session_id),
+            "session_id": sid_str,
             "user_id": str(user_uuid),
             "video_bytes": payload.videoSizeBytes,
         },
     )
 
-    return SoloSessionPrepareUploadOut(
-        sessionId=str(business_session_id),
+    out = SoloSessionPrepareUploadOut(
+        sessionId=sid_str,
         reps=payload.reps,
         videoUrl=None,
         uploadUrl=upload_url,
@@ -261,6 +327,18 @@ def prepare_solo_session_upload(
         multipartRecommendedPartBytes=None,
         multipartMaxConcurrency=None,
     )
+    _log_solo_prepare_timing(
+        request=request,
+        session_id=sid_str,
+        user_id=str(user_uuid),
+        video_bytes=payload.videoSizeBytes,
+        strategy="simple_put",
+        user_lookup_ms=user_lookup_ms,
+        existing_query_ms=existing_query_ms,
+        presign_ms=presign_ms,
+        t_handler0=t_handler0,
+    )
+    return out
 
 
 def _solo_parse_session_uuid(raw: str) -> uuid.UUID:

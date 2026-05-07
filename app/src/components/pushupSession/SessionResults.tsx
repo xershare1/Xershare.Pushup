@@ -129,6 +129,17 @@ export function SessionResults({
     return () => window.removeEventListener('pagehide', onPageHide)
   }, [])
 
+  /** Warn on tab close / hard refresh during upload — does not affect in-app SPA navigation. */
+  useEffect(() => {
+    if (soloStatus !== 'saving') return
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', onBeforeUnload)
+    return () => window.removeEventListener('beforeunload', onBeforeUnload)
+  }, [soloStatus])
+
   const downloadFilename = useMemo(() => {
     if (!sessionRecording) return 'pushup-session.webm'
     const ext = recordingFileExtension(sessionRecording)
@@ -156,6 +167,7 @@ export function SessionResults({
             reps: repsRef.current,
             video: recordingRef.current,
             sessionId: soloSyncKey,
+            saveRetryNonce,
           },
           {
             onUploadProgress: (loaded, total) => {
@@ -278,6 +290,11 @@ export function SessionResults({
                 {soloCloudPhase === 'processing' ? (
                   <progress className="pushup-results-solo-save-progress" aria-label="Processing upload" />
                 ) : null}
+                <span className="pushup-results-solo-save-hint">
+                  Keep this browser tab open until the upload completes. Closing or refreshing can interrupt saving.
+                  You can use other routes in this app — your recording will appear in session history shortly after it
+                  finishes.
+                </span>
               </div>
             </div>
           ) : null}
@@ -369,6 +386,10 @@ export function SessionResults({
           {soloCloudPhase === 'processing' ? (
             <progress aria-label="Processing upload" style={{ width: '100%', marginTop: '0.5rem', height: '6px' }} />
           ) : null}
+          <p className="muted" style={{ marginTop: '0.5rem', fontSize: '0.875rem', lineHeight: 1.35 }}>
+            Keep this browser tab open until the upload completes. Closing or refreshing can interrupt saving. Other
+            pages in this app are fine — your recording will show in session history shortly after upload finishes.
+          </p>
         </div>
       ) : null}
       {soloStatus === 'saved' ? (

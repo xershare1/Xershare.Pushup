@@ -95,6 +95,33 @@ function stripNonPrintableExceptTab(s: string): string {
   return out
 }
 
+const SIMPLE_PUT_TIMEOUT_MS = 120_000
+
+function logSoloUploadTelemetry(stage: string, payload: Record<string, unknown>): void {
+  if (!import.meta.env.DEV) return
+  try {
+    const nav = typeof navigator !== 'undefined' ? navigator : undefined
+    const c = nav && 'connection' in nav ? (nav as Navigator & { connection?: NetworkInformation }).connection : undefined
+
+    console.info('[solo-upload]', {
+      stage,
+      ...payload,
+      userAgent: nav?.userAgent,
+      effectiveType: c?.effectiveType,
+      downlinkMbps: c?.downlink,
+      saveData: c?.saveData,
+    })
+  } catch {
+    /* ignore */
+  }
+}
+
+interface NetworkInformation {
+  effectiveType?: string
+  downlink?: number
+  saveData?: boolean
+}
+
 function putBlobToS3(
   uploadUrl: string,
   blob: Blob,
@@ -104,6 +131,7 @@ function putBlobToS3(
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
     xhr.open('PUT', uploadUrl)
+    xhr.timeout = SIMPLE_PUT_TIMEOUT_MS
     for (const [k, v] of Object.entries(headers)) {
       xhr.setRequestHeader(k, v)
     }
@@ -122,6 +150,8 @@ function putBlobToS3(
     }
     xhr.onerror = () => reject(new HttpError(0, 'Network error while uploading to storage.'))
     xhr.onabort = () => reject(new HttpError(0, 'Upload cancelled.'))
+    xhr.ontimeout = () =>
+      reject(new HttpError(0, `Upload to storage timed out after ${SIMPLE_PUT_TIMEOUT_MS}ms`))
     xhr.send(blob)
   })
 }
@@ -133,13 +163,26 @@ export type CreateSoloSessionOptions = {
   onPhaseChange?: (phase: SoloCloudPhase) => void
 }
 
+/** In-flight cloud save keyed by session + retry nonce; Strict Mode joins the same Promise. */
+const soloCreateInFlight = new Map<string, Promise<SoloSessionResponse>>()
+
+function soloCreateFlightKey(sessionId: string, saveRetryNonce?: number): string {
+  return `${sessionId}:${saveRetryNonce ?? 0}`
+}
+
 /**
  * Persist a solo set (reps + optional recorded video). Requires Clerk session JWT.
  * Recordings upload via presigned PUT or multipart UploadPart directly to S3, then finalize on the API.
  */
 export async function createSoloSession(
   getToken: ClerkGetToken,
-  params: { reps: number; video?: Blob | null; sessionId?: string },
+  params: {
+    reps: number
+    video?: Blob | null
+    sessionId?: string
+    /** Bump with Retry so a failed flight key can save again without joining a dead Promise. */
+    saveRetryNonce?: number
+  },
   options?: CreateSoloSessionOptions,
 ): Promise<SoloSessionResponse> {
   if (isMockApiEnabled()) {
@@ -150,6 +193,38 @@ export async function createSoloSession(
     }
   }
 
+  const sessionId = params.sessionId
+  if (!sessionId) {
+    throw new Error('Missing session id for solo save.')
+  }
+
+  const flightKey = soloCreateFlightKey(sessionId, params.saveRetryNonce)
+  const joined = soloCreateInFlight.get(flightKey)
+  if (joined) {
+    console.info('[solo] createSoloSession single-flight join', {
+      sessionId,
+      saveRetryNonce: params.saveRetryNonce ?? 0,
+    })
+    return joined
+  }
+
+  const promise = runCreateSoloSession(getToken, params, options).finally(() => {
+    soloCreateInFlight.delete(flightKey)
+  })
+  soloCreateInFlight.set(flightKey, promise)
+  return promise
+}
+
+async function runCreateSoloSession(
+  getToken: ClerkGetToken,
+  params: {
+    reps: number
+    video?: Blob | null
+    sessionId?: string
+    saveRetryNonce?: number
+  },
+  options?: CreateSoloSessionOptions,
+): Promise<SoloSessionResponse> {
   const token = (await getToken()) ?? null
   if (!token) {
     throw new Error('Sign in to save your session.')
@@ -157,25 +232,32 @@ export async function createSoloSession(
 
   const progress = options?.onUploadProgress
   const onPhaseChange = options?.onPhaseChange
-  const sessionId = params.sessionId
-  if (!sessionId) {
-    throw new Error('Missing session id for solo save.')
-  }
-
+  const sessionId = params.sessionId!
   const video = params.video
   const hasVideo = Boolean(video && video.size > 0)
+  const videoBytes = hasVideo ? video!.size : 0
+  const mimeForLog = hasVideo ? (video!.type || 'video/webm').split(';')[0]!.trim() : ''
+
+  const uploadStartedAt = performance.now()
 
   try {
     if (!hasVideo) {
-      return await jsonFetchAuthed<SoloSessionResponse>(getToken, '/solo/session/complete-upload', {
+      const row = await jsonFetchAuthed<SoloSessionResponse>(getToken, '/solo/session/complete-upload', {
         method: 'POST',
         body: JSON.stringify({
           sessionId,
           reps: params.reps,
         }),
       })
+      logSoloUploadTelemetry('save_no_video', {
+        sessionId,
+        reps: params.reps,
+        totalMs: Math.round(performance.now() - uploadStartedAt),
+      })
+      return row
     }
 
+    const tPrepare = performance.now()
     const prepared = await jsonFetchAuthed<SoloSessionPrepareResponse>(
       getToken,
       '/solo/session/prepare-upload',
@@ -189,8 +271,22 @@ export async function createSoloSession(
         }),
       },
     )
+    const prepareMs = Math.round(performance.now() - tPrepare)
+    logSoloUploadTelemetry('prepare_upload_done', {
+      sessionId: prepared.sessionId,
+      prepareMs,
+      strategy: prepared.uploadStrategy ?? 'simple_put',
+      videoBytes,
+      mime: mimeForLog,
+    })
 
     if (prepared.videoUrl) {
+      logSoloUploadTelemetry('prepare_idempotent_hit', {
+        sessionId: prepared.sessionId,
+        prepareMs,
+        videoBytes,
+        mime: mimeForLog,
+      })
       return {
         sessionId: prepared.sessionId,
         reps: prepared.reps,
@@ -202,6 +298,7 @@ export async function createSoloSession(
 
     if (multipart) {
       onPhaseChange?.('uploading')
+      const tMpu = performance.now()
       const assembled = await soloMultipartUploadToComplete({
         getToken,
         sessionId: prepared.sessionId,
@@ -212,8 +309,17 @@ export async function createSoloSession(
         maxConcurrency: prepared.multipartMaxConcurrency ?? undefined,
         onUploadProgress: progress,
       })
+      const mpuMs = Math.round(performance.now() - tMpu)
 
       if (assembled.kind === 'already_finished') {
+        const kbps = mpuMs > 0 ? Math.round((videoBytes / 1024 / (mpuMs / 1000)) * 100) / 100 : 0
+        logSoloUploadTelemetry('multipart_already_finished', {
+          sessionId: assembled.sessionId,
+          mpuMs,
+          videoBytes,
+          mime: mimeForLog,
+          effectiveKBps: kbps,
+        })
         return {
           sessionId: assembled.sessionId,
           reps: assembled.reps,
@@ -222,7 +328,8 @@ export async function createSoloSession(
       }
 
       onPhaseChange?.('processing')
-      return await jsonFetchAuthed<SoloSessionResponse>(getToken, '/solo/session/complete-upload', {
+      const tComplete = performance.now()
+      const finalized = await jsonFetchAuthed<SoloSessionResponse>(getToken, '/solo/session/complete-upload', {
         method: 'POST',
         body: JSON.stringify({
           sessionId: prepared.sessionId,
@@ -230,6 +337,20 @@ export async function createSoloSession(
           contentType: video!.type || 'video/webm',
         }),
       })
+      const completeMs = Math.round(performance.now() - tComplete)
+      const totalMs = Math.round(performance.now() - uploadStartedAt)
+      logSoloUploadTelemetry('multipart_save_done', {
+        sessionId: prepared.sessionId,
+        prepareMs,
+        mpuMs,
+        completeMs,
+        totalMs,
+        videoBytes,
+        mime: mimeForLog,
+        effectiveKBps:
+          totalMs > 0 ? Math.round((videoBytes / 1024 / (totalMs / 1000)) * 100) / 100 : 0,
+      })
+      return finalized
     }
 
     const uploadUrl = prepared.uploadUrl
@@ -238,10 +359,22 @@ export async function createSoloSession(
     }
 
     onPhaseChange?.('uploading')
+    const tPut = performance.now()
     await putBlobToS3(uploadUrl, video!, prepared.uploadHeaders, progress)
-    onPhaseChange?.('processing')
+    const putMs = Math.round(performance.now() - tPut)
+    const kbps = putMs > 0 ? Math.round((videoBytes / 1024 / (putMs / 1000)) * 100) / 100 : 0
+    logSoloUploadTelemetry('s3_simple_put_done', {
+      sessionId: prepared.sessionId,
+      prepareMs,
+      putMs,
+      videoBytes,
+      mime: mimeForLog,
+      effectiveKBps: kbps,
+    })
 
-    return await jsonFetchAuthed<SoloSessionResponse>(getToken, '/solo/session/complete-upload', {
+    onPhaseChange?.('processing')
+    const tComplete = performance.now()
+    const finalized = await jsonFetchAuthed<SoloSessionResponse>(getToken, '/solo/session/complete-upload', {
       method: 'POST',
       body: JSON.stringify({
         sessionId: prepared.sessionId,
@@ -249,7 +382,26 @@ export async function createSoloSession(
         contentType: video!.type || 'video/webm',
       }),
     })
+    const completeMs = Math.round(performance.now() - tComplete)
+    const totalMs = Math.round(performance.now() - uploadStartedAt)
+    logSoloUploadTelemetry('simple_put_save_done', {
+      sessionId: prepared.sessionId,
+      prepareMs,
+      putMs,
+      completeMs,
+      totalMs,
+      videoBytes,
+      mime: mimeForLog,
+      effectiveKBps: totalMs > 0 ? Math.round((videoBytes / 1024 / (totalMs / 1000)) * 100) / 100 : 0,
+    })
+    return finalized
   } catch (e) {
+    logSoloUploadTelemetry('save_error', {
+      sessionId,
+      videoBytes,
+      mime: mimeForLog,
+      err: e instanceof Error ? e.message : String(e),
+    })
     if (e instanceof HttpError) {
       throw new HttpError(e.status, parseFastApiDetail(e.message))
     }
