@@ -35,6 +35,29 @@ function mergeHeaders(
   return h
 }
 
+function generateReqId(): string {
+  try {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID().replace(/-/g, '').slice(0, 12)
+    }
+  } catch {
+    /* fall through */
+  }
+  return Math.random().toString(36).slice(2, 14)
+}
+
+/**
+ * Per-route hard ceiling. Multipart finalize and DB-write paths get more headroom
+ * because they wait on S3 + Postgres; everything else uses 30s so a stalled
+ * connection can't hold a per-host slot indefinitely.
+ */
+function timeoutForPath(path: string): number {
+  if (path.includes('/multipart/complete') || path.includes('/complete-upload')) {
+    return 60_000
+  }
+  return 30_000
+}
+
 export async function authedFetchOnce(
   getToken: ClerkGetToken,
   path: string,
@@ -42,18 +65,55 @@ export async function authedFetchOnce(
   headerDefaults: Record<string, string>,
 ): Promise<Response> {
   const base = getApiBaseUrl()
+  const reqId = generateReqId()
+  const method = (init?.method || 'GET').toUpperCase()
+  const timeoutMs = timeoutForPath(path)
+  const defaultsWithReq: Record<string, string> = {
+    ...headerDefaults,
+    'X-Request-Id': reqId,
+  }
   const token = (await getToken()) ?? null
-  const run = (t: string | null) =>
-    fetch(`${base}${path}`, {
-      ...init,
-      headers: mergeHeaders(init, headerDefaults, t),
-    })
 
-  let res = await run(token)
+  const run = async (t: string | null, attempt: number): Promise<Response> => {
+    const controller = new AbortController()
+    const timer = window.setTimeout(() => controller.abort(), timeoutMs)
+    const startedAt = performance.now()
+    console.debug('[api] →', method, path, { reqId, attempt, timeoutMs })
+    try {
+      const r = await fetch(`${base}${path}`, {
+        ...init,
+        headers: mergeHeaders(init, defaultsWithReq, t),
+        signal: controller.signal,
+      })
+      const ms = Math.round(performance.now() - startedAt)
+      const serverReqId = r.headers.get('x-request-id') || ''
+      console.debug('[api] ←', method, path, {
+        reqId,
+        attempt,
+        status: r.status,
+        ms,
+        serverReqId,
+      })
+      return r
+    } catch (e) {
+      const ms = Math.round(performance.now() - startedAt)
+      const isAbort = (e as DOMException | null)?.name === 'AbortError'
+      if (isAbort) {
+        console.warn('[api] ✕ timeout', method, path, { reqId, attempt, timeoutMs, ms })
+        throw new HttpError(0, `Request timed out after ${timeoutMs}ms`)
+      }
+      console.warn('[api] ✕ error', method, path, { reqId, attempt, ms, err: String(e) })
+      throw e
+    } finally {
+      window.clearTimeout(timer)
+    }
+  }
+
+  let res = await run(token, 1)
   if (res.status === 401 && token) {
     const fresh = (await getToken({ skipCache: true })) ?? null
     if (fresh) {
-      res = await run(fresh)
+      res = await run(fresh, 2)
     }
   }
   return res

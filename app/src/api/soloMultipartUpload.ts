@@ -79,6 +79,8 @@ function normaliseQuotedEtag(h: string | null): string {
   return t.startsWith('"') && t.endsWith('"') ? t.slice(1, -1).trim() : t.replace(/^W\//i, '').trim()
 }
 
+const PART_PUT_TIMEOUT_MS = 120_000
+
 function putBlobToS3Part(
   uploadUrl: string,
   blob: Blob,
@@ -87,6 +89,7 @@ function putBlobToS3Part(
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
     xhr.open('PUT', uploadUrl)
+    xhr.timeout = PART_PUT_TIMEOUT_MS
     xhr.upload.onprogress = (ev) => {
       if (ev.lengthComputable && onPartProgress) onPartProgress(ev.loaded, ev.total)
     }
@@ -98,6 +101,8 @@ function putBlobToS3Part(
       reject(new HttpError(xhr.status, xhr.responseText || xhr.statusText || 'Part upload failed.'))
     }
     xhr.onerror = () => reject(new HttpError(0, 'Network error while uploading a part.'))
+    xhr.ontimeout = () =>
+      reject(new HttpError(0, `Part upload timed out after ${PART_PUT_TIMEOUT_MS}ms`))
     xhr.send(blob)
   })
 }
@@ -115,15 +120,31 @@ function partSlices(total: number, chunkSizeBytes: number): Array<{ pn: number; 
   return out
 }
 
-async function retrying<T>(_label: string, fn: () => Promise<T>, maxAttempts: number): Promise<T> {
+async function retrying<T>(
+  label: string,
+  fn: (attempt: number) => Promise<T>,
+  maxAttempts: number,
+): Promise<T> {
   let lastErr: unknown
   for (let i = 0; i < maxAttempts; i += 1) {
     try {
-      return await fn()
+      return await fn(i + 1)
     } catch (e) {
       lastErr = e
-      if (i === maxAttempts - 1) break
-      await new Promise((r) => setTimeout(r, 350 * (i + 1)))
+      if (i < maxAttempts - 1) {
+        const backoffMs = 350 * (i + 1)
+        console.warn('[solo-mpu] retry', label, {
+          attempt: i + 1,
+          nextAttemptInMs: backoffMs,
+          err: e instanceof Error ? e.message : String(e),
+        })
+        await new Promise((r) => setTimeout(r, backoffMs))
+      } else {
+        console.warn('[solo-mpu] gave up', label, {
+          attempts: maxAttempts,
+          err: e instanceof Error ? e.message : String(e),
+        })
+      }
     }
   }
   throw lastErr instanceof Error ? lastErr : new Error('Multipart part upload failed.')
@@ -160,6 +181,9 @@ export async function soloMultipartUploadToComplete(opts: SoloMultipartUploadOpt
     onUploadProgress,
   } = opts
 
+  const tStart = performance.now()
+  console.info('[solo-mpu] init request', { sessionId, totalBytes: blob.size, contentType })
+
   const initJson = await jsonFetchAuthed<SoloMultipartInitResponse>(getToken, '/solo/session/multipart/init', {
     method: 'POST',
     body: JSON.stringify({
@@ -171,6 +195,7 @@ export async function soloMultipartUploadToComplete(opts: SoloMultipartUploadOpt
   })
 
   if (initJson.videoUrl != null && initJson.videoUrl.trim()) {
+    console.info('[solo-mpu] init returned existing videoUrl (idempotent hit)', { sessionId })
     clearSoloMultipartState(sessionId)
     return {
       kind: 'already_finished',
@@ -194,6 +219,7 @@ export async function soloMultipartUploadToComplete(opts: SoloMultipartUploadOpt
 
   const etagByPart = new Map<number, string>()
   const persisted = loadSoloMultipartState(sessionId)
+  let resumedPartCount = 0
   if (
     persisted &&
     persisted.uploadId === uploadId &&
@@ -203,6 +229,7 @@ export async function soloMultipartUploadToComplete(opts: SoloMultipartUploadOpt
     persisted.contentType === contentType
   ) {
     for (const p of persisted.parts) etagByPart.set(p.partNumber, p.etag)
+    resumedPartCount = etagByPart.size
   } else if (persisted && persisted.uploadId !== uploadId) {
     clearSoloMultipartState(sessionId)
   }
@@ -226,14 +253,26 @@ export async function soloMultipartUploadToComplete(opts: SoloMultipartUploadOpt
   emitProgress()
 
   const pending = layout.filter((s) => !etagByPart.has(s.pn)).map((s) => s.pn)
+  console.info('[solo-mpu] init done', {
+    sessionId,
+    uploadIdTail: uploadId.slice(-8),
+    objectKey,
+    chunkSizeBytes,
+    concurrencyCap,
+    totalParts: layout.length,
+    pending: pending.length,
+    resumedPartCount,
+  })
 
   async function uploadOne(partNumber: number): Promise<void> {
     const slice = layout.find((x) => x.pn === partNumber)
     if (!slice) throw new Error('Invalid part.')
+    const partBytes = slice.end - slice.start
 
     await retrying(
       `part_${partNumber}`,
-      async () => {
+      async (attempt) => {
+        const tPresign = performance.now()
         const pres = await jsonFetchAuthed<PresignPartsResponse>(getToken, '/solo/session/multipart/presign-parts', {
           method: 'POST',
           body: JSON.stringify({
@@ -242,6 +281,7 @@ export async function soloMultipartUploadToComplete(opts: SoloMultipartUploadOpt
             partNumbers: [partNumber],
           }),
         })
+        const presignMs = Math.round(performance.now() - tPresign)
 
         const urlKey = String(partNumber)
         const signed = pres.urls[urlKey]
@@ -253,6 +293,7 @@ export async function soloMultipartUploadToComplete(opts: SoloMultipartUploadOpt
         inFlightLoads.set(partNumber, 0)
         emitProgress()
 
+        const tPut = performance.now()
         try {
           const etag = await putBlobToS3Part(signed, body, (ld, tl) => {
             inFlightLoads.set(partNumber, ld)
@@ -261,9 +302,10 @@ export async function soloMultipartUploadToComplete(opts: SoloMultipartUploadOpt
           })
           if (!etag) throw new HttpError(0, 'Missing ETag for uploaded part.')
 
+          const putMs = Math.round(performance.now() - tPut)
           etagByPart.set(partNumber, etag)
 
-          confirmedBytes += slice.end - slice.start
+          confirmedBytes += partBytes
 
           const nextParts: SoloMultipartPersistedPart[] = [...etagByPart.entries()]
             .sort((a, b) => a[0] - b[0])
@@ -279,6 +321,15 @@ export async function soloMultipartUploadToComplete(opts: SoloMultipartUploadOpt
             parts: nextParts,
           })
 
+          console.debug('[solo-mpu] part ok', {
+            partNumber,
+            attempt,
+            bytes: partBytes,
+            presignMs,
+            putMs,
+            etagTail: etag.slice(-8),
+          })
+
           emitProgress()
         } finally {
           inFlightLoads.delete(partNumber)
@@ -291,12 +342,29 @@ export async function soloMultipartUploadToComplete(opts: SoloMultipartUploadOpt
 
   await promisePool(concurrencyCap, pending, uploadOne)
 
+  console.info('[solo-mpu] all parts uploaded; calling multipart/complete', {
+    sessionId,
+    uploadIdTail: uploadId.slice(-8),
+    parts: etagByPart.size,
+    totalBytes: blob.size,
+    uploadMs: Math.round(performance.now() - tStart),
+  })
+
+  const tComplete = performance.now()
   await jsonFetchAuthed<void>(getToken, '/solo/session/multipart/complete', {
     method: 'POST',
     body: JSON.stringify({ sessionId, uploadId }),
   })
+  const completeMs = Math.round(performance.now() - tComplete)
 
   clearSoloMultipartState(sessionId)
+  console.info('[solo-mpu] assembled', {
+    sessionId,
+    parts: etagByPart.size,
+    totalBytes: blob.size,
+    completeMs,
+    totalMpuMs: Math.round(performance.now() - tStart),
+  })
   return { kind: 'assembled' }
 }
 

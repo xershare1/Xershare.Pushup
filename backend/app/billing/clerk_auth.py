@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import time
 
 import jwt
 from fastapi import Depends, HTTPException, status
@@ -64,4 +66,13 @@ async def require_clerk_user_id(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing Authorization Bearer token",
         )
-    return clerk_user_id_from_token(creds.credentials)
+    t0 = time.perf_counter()
+    try:
+        sub = await asyncio.to_thread(clerk_user_id_from_token, creds.credentials)
+    finally:
+        verify_ms = int((time.perf_counter() - t0) * 1000)
+        if verify_ms > 50:
+            logger.info("clerk_jwt_verify_ms=%s", verify_ms)
+        else:
+            logger.debug("clerk_jwt_verify_ms=%s", verify_ms)
+    return sub
