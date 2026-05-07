@@ -541,14 +541,14 @@ export function PushupSession({ onBack, variant = 'default', onSessionComplete }
           prev.validated !== snap.validated
         ) {
           lastPoseDebugRef.current = snap
-          console.log('[pushup-pose]', {
+/*           console.log('[pushup-pose]', {
             elbowDeg: r.debug.normalizedElbowDeg,
             backCosine: r.debug.backCosine,
             backStraight: snap.backStraight,
             allWayUp: snap.rawUp,
             allWayDown: snap.rawDown,
             validatedPosition: snap.validated,
-          })
+          }) */
         }
       }
     }

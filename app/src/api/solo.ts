@@ -239,6 +239,12 @@ async function runCreateSoloSession(
   const mimeForLog = hasVideo ? (video!.type || 'video/webm').split(';')[0]!.trim() : ''
 
   const uploadStartedAt = performance.now()
+  console.info('[solo] createSoloSession start', {
+    sessionId,
+    reps: params.reps,
+    hasVideo,
+    videoBytes,
+  })
 
   try {
     if (!hasVideo) {
@@ -298,6 +304,7 @@ async function runCreateSoloSession(
 
     if (multipart) {
       onPhaseChange?.('uploading')
+      console.info('[solo] phase=multipart start', { sessionId, videoBytes })
       const tMpu = performance.now()
       const assembled = await soloMultipartUploadToComplete({
         getToken,

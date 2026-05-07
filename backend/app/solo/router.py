@@ -369,17 +369,20 @@ def solo_multipart_init(
     parsed = _parse_client_session_id(payload.sessionId)
     business_session_id = parsed if parsed is not None else uuid.uuid4()
 
+    t_lookup = time.perf_counter()
     existing = db.scalar(
         select(SoloSession).where(
             SoloSession.user_id == user_uuid,
             SoloSession.session_id == business_session_id,
         )
     )
+    lookup_ms = int((time.perf_counter() - t_lookup) * 1000)
     if existing is not None:
         out = _solo_session_out(existing)
         logger.info(
-            "solo_multipart_init_idempotent_hit",
-            extra={"session_id": str(business_session_id)},
+            "solo_multipart_init_idempotent_hit session_id=%s lookup_ms=%s",
+            str(business_session_id),
+            lookup_ms,
         )
         return SoloMultipartInitOut(
             sessionId=out.sessionId,
@@ -394,6 +397,7 @@ def solo_multipart_init(
     if not get_aws_s3_bucket():
         raise _s3_bucket_config_error()
 
+    t_create = time.perf_counter()
     try:
         object_key, upload_id = multipart_create_solo_video(
             user_id=user_uuid,
@@ -405,14 +409,15 @@ def solo_multipart_init(
         if "AWS_S3_BUCKET" in msg or "not set" in msg.lower():
             raise _s3_bucket_config_error() from e
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=msg) from e
+    create_ms = int((time.perf_counter() - t_create) * 1000)
 
     logger.info(
-        "solo_multipart_init",
-        extra={
-            "session_id": str(business_session_id),
-            "upload_id_tail": upload_id[-8:] if upload_id else "",
-            "video_bytes": payload.videoSizeBytes,
-        },
+        "solo_multipart_init session_id=%s upload_id_tail=%s video_bytes=%s lookup_ms=%s s3_create_ms=%s",
+        str(business_session_id),
+        upload_id[-8:] if upload_id else "",
+        payload.videoSizeBytes,
+        lookup_ms,
+        create_ms,
     )
     return SoloMultipartInitOut(
         sessionId=str(business_session_id),
@@ -441,7 +446,11 @@ def solo_multipart_presign_parts(
     seen: set[int] = set()
     out_urls: dict[str, str] = {}
     try:
+        t_assert = time.perf_counter()
         multipart_assert_upload_alive(object_key=expected_key, upload_id=payload.uploadId)
+        assert_ms = int((time.perf_counter() - t_assert) * 1000)
+
+        t_sign = time.perf_counter()
         for pn in payload.partNumbers:
             if pn in seen:
                 raise HTTPException(
@@ -461,11 +470,23 @@ def solo_multipart_presign_parts(
                 expires_seconds=3600,
             )
             out_urls[str(pn)] = url
+        sign_ms = int((time.perf_counter() - t_sign) * 1000)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         ) from e
+
+    parts_count = len(out_urls)
+    avg_ms_per_part = int(sign_ms / parts_count) if parts_count else 0
+    logger.info(
+        "solo_multipart_presign_parts session_id=%s parts=%s assert_ms=%s sign_total_ms=%s sign_avg_ms_per_part=%s",
+        str(sid),
+        parts_count,
+        assert_ms,
+        sign_ms,
+        avg_ms_per_part,
+    )
 
     return SoloMultipartPresignPartsOut(urls=out_urls)
 
@@ -483,6 +504,7 @@ async def solo_multipart_complete(
     if not get_aws_s3_bucket():
         raise _s3_bucket_config_error()
 
+    t_list = time.perf_counter()
     try:
         parts = await asyncio.to_thread(
             multipart_list_parts,
@@ -491,13 +513,20 @@ async def solo_multipart_complete(
         )
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+    list_ms = int((time.perf_counter() - t_list) * 1000)
 
     if not parts:
+        logger.warning(
+            "solo_multipart_complete_no_parts session_id=%s list_ms=%s",
+            str(sid),
+            list_ms,
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No uploaded parts found for multipart upload.",
         )
 
+    t_complete = time.perf_counter()
     try:
         await asyncio.to_thread(
             multipart_complete,
@@ -510,12 +539,21 @@ async def solo_multipart_complete(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         ) from e
+    complete_ms = int((time.perf_counter() - t_complete) * 1000)
+
+    logger.info(
+        "solo_multipart_complete session_id=%s parts_count=%s list_ms=%s s3_complete_ms=%s",
+        str(sid),
+        len(parts),
+        list_ms,
+        complete_ms,
+    )
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/session/multipart/abort", status_code=status.HTTP_204_NO_CONTENT)
-async def solo_multipart_abort(
+def solo_multipart_abort(
     payload: SoloMultipartAbortIn,
     clerk_user_id: str = Depends(require_clerk_user_id),
     db: Session = Depends(get_db_required_session),
@@ -523,8 +561,7 @@ async def solo_multipart_abort(
     user_uuid = get_or_create_user_by_clerk_id(db, clerk_user_id)
     sid = _solo_parse_session_uuid(payload.sessionId)
     expected_key = solo_session_video_key(user_uuid, sid)
-    await asyncio.to_thread(
-        multipart_abort,
+    multipart_abort(
         object_key=expected_key,
         upload_id=payload.uploadId,
     )
@@ -532,7 +569,7 @@ async def solo_multipart_abort(
 
 
 @router.post("/session/complete-upload", response_model=SoloSessionOut)
-async def complete_solo_session_upload(
+def complete_solo_session_upload(
     payload: SoloSessionCompleteUploadIn,
     clerk_user_id: str = Depends(require_clerk_user_id),
     db: Session = Depends(get_db_required_session),
@@ -557,19 +594,20 @@ async def complete_solo_session_upload(
             detail="Invalid session_id: expected a UUID.",
         ) from e
 
+    t_lookup = time.perf_counter()
     existing = db.scalar(
         select(SoloSession).where(
             SoloSession.user_id == user_uuid,
             SoloSession.session_id == business_session_id,
         )
     )
+    lookup_ms = int((time.perf_counter() - t_lookup) * 1000)
     if existing is not None:
         logger.info(
-            "solo_session_complete_idempotent_hit",
-            extra={
-                "session_id": str(business_session_id),
-                "user_id": str(user_uuid),
-            },
+            "solo_session_complete_idempotent_hit session_id=%s user_id=%s lookup_ms=%s",
+            str(business_session_id),
+            str(user_uuid),
+            lookup_ms,
         )
         return _solo_session_out(existing)
 
@@ -583,7 +621,7 @@ async def complete_solo_session_upload(
         key = solo_session_video_key(user_uuid, business_session_id)
         t_head = time.perf_counter()
         try:
-            meta = await asyncio.to_thread(head_solo_video, key)
+            meta = head_solo_video(key)
         except Exception:
             logger.exception(
                 "solo_session_head_failed",
@@ -636,9 +674,11 @@ async def complete_solo_session_upload(
         expires_at=expires_at,
     )
     db.add(row)
+    t_flush = time.perf_counter()
     try:
         db.flush()
     except IntegrityError:
+        flush_ms = int((time.perf_counter() - t_flush) * 1000)
         db.rollback()
         replay = db.scalar(
             select(SoloSession).where(
@@ -648,27 +688,27 @@ async def complete_solo_session_upload(
         )
         if replay is not None:
             logger.info(
-                "solo_session_idempotent_race",
-                extra={
-                    "session_id": str(business_session_id),
-                    "user_id": str(user_uuid),
-                },
+                "solo_session_idempotent_race session_id=%s user_id=%s flush_ms=%s",
+                str(business_session_id),
+                str(user_uuid),
+                flush_ms,
             )
             return _solo_session_out(replay)
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Could not create solo session.",
         ) from None
+    flush_ms = int((time.perf_counter() - t_flush) * 1000)
 
     logger.info(
-        "solo_session_created",
-        extra={
-            "session_id": str(business_session_id),
-            "row_id": str(row_pk),
-            "user_id": str(user_uuid),
-            "reps": payload.reps,
-            "has_video": bool(video_key),
-        },
+        "solo_session_created session_id=%s row_id=%s user_id=%s reps=%s has_video=%s lookup_ms=%s flush_ms=%s",
+        str(business_session_id),
+        str(row_pk),
+        str(user_uuid),
+        payload.reps,
+        bool(video_key),
+        lookup_ms,
+        flush_ms,
     )
 
     return _solo_session_out(row)
