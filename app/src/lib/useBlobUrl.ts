@@ -1,20 +1,16 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo } from 'react'
 
 /** Object URL for a File/Blob; revoked on change/unmount. */
 export function useBlobUrl(blob: Blob | null): string | null {
-  const [url, setUrl] = useState<string | null>(null)
+  const url = useMemo(() => (blob ? URL.createObjectURL(blob) : null), [blob])
 
   useEffect(() => {
-    if (!blob) {
-      setUrl(null)
-      return
-    }
-    const u = URL.createObjectURL(blob)
-    setUrl(u)
     return () => {
-      URL.revokeObjectURL(u)
+      if (url) {
+        URL.revokeObjectURL(url)
+      }
     }
-  }, [blob])
+  }, [url])
 
   return url
 }

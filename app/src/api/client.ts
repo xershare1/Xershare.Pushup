@@ -35,6 +35,24 @@ function mergeHeaders(
   return h
 }
 
+/** Free ngrok returns ERR_NGROK_6024 interstitial without CORS; skip for programmatic fetches. https://ngrok.com/docs/errors/err_ngrok_6024 */
+function tunnelBypassHeadersForNgrok(apiBaseUrl: string): Record<string, string> {
+  try {
+    const host = new URL(apiBaseUrl).hostname.toLowerCase()
+    if (
+      host.endsWith('.ngrok-free.dev') ||
+      host.endsWith('.ngrok-free.app') ||
+      host.endsWith('.ngrok.io') ||
+      host.endsWith('.ngrok.app')
+    ) {
+      return { 'ngrok-skip-browser-warning': 'true' }
+    }
+  } catch {
+    /* ignore invalid URL */
+  }
+  return {}
+}
+
 function generateReqId(): string {
   try {
     if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -69,6 +87,7 @@ export async function authedFetchOnce(
   const method = (init?.method || 'GET').toUpperCase()
   const timeoutMs = timeoutForPath(path)
   const defaultsWithReq: Record<string, string> = {
+    ...tunnelBypassHeadersForNgrok(base),
     ...headerDefaults,
     'X-Request-Id': reqId,
   }
@@ -127,6 +146,7 @@ export async function jsonFetch<T>(
   const res = await fetch(`${base}${path}`, {
     ...init,
     headers: {
+      ...tunnelBypassHeadersForNgrok(base),
       Accept: 'application/json',
       'Content-Type': 'application/json',
       ...init?.headers,

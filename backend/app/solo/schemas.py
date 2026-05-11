@@ -48,6 +48,7 @@ class SoloSessionCompleteUploadIn(BaseModel):
     sessionId: str
     reps: int
     contentType: str | None = None
+    captureContext: dict | None = None
 
 
 RECOMMENDED_SOLO_MULTIPART_CHUNK_BYTES = 8 * 1024 * 1024

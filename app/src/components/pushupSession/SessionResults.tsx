@@ -18,6 +18,7 @@ import { createSoloSession, type SoloCloudPhase } from '../../api/solo'
 import { loadSoloMultipartState, soloAbortMultipartUpload } from '../../api/soloMultipartUpload'
 import { formatError } from '../../lib/formatError'
 import { getSoloResultsFeedbackLine, getWorkoutFeedback } from '../../lib/workoutFeedback'
+import type { SessionStartCaptureContext } from '../../lib/capture/sessionCaptureContext'
 
 /** CJS/ESM interop: Vite may give the component or a module object with `.default`. */
 const CountUp: FC<CountUpProps> =
@@ -36,6 +37,7 @@ type Props = {
   sessionDurationSec?: number
   priorPersonalBest?: number | null
   bestInLast7Days?: number | null
+  sessionCaptureContext?: SessionStartCaptureContext | null
 }
 
 function formatMmSs(totalSec: number): string {
@@ -77,6 +79,7 @@ export function SessionResults({
   sessionDurationSec = 60,
   priorPersonalBest = null,
   bestInLast7Days = null,
+  sessionCaptureContext = null,
 }: Props) {
   const { getToken } = useAuth()
   const feedbackDefault = getWorkoutFeedback(reps)
@@ -109,6 +112,11 @@ export function SessionResults({
   const getTokenRef = useRef(getToken)
   const soloStatusRef = useRef(soloStatus)
   const soloSyncKeyRef = useRef<string | null>(soloSyncKey)
+  const captureContextRef = useRef<SessionStartCaptureContext | null>(sessionCaptureContext)
+
+  useLayoutEffect(() => {
+    captureContextRef.current = sessionCaptureContext
+  }, [sessionCaptureContext])
 
   useLayoutEffect(() => {
     soloStatusRef.current = soloStatus
@@ -227,6 +235,7 @@ export function SessionResults({
             video: recordingRef.current,
             sessionId: soloSyncKey,
             saveRetryNonce,
+            captureContext: captureContextRef.current,
           },
           {
             onUploadProgress: onSoloUploadProgressBridge,

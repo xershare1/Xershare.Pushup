@@ -672,6 +672,7 @@ def complete_solo_session_upload(
         reps=payload.reps,
         video_s3_key=video_key,
         expires_at=expires_at,
+        capture_context_json=payload.captureContext,
     )
     db.add(row)
     t_flush = time.perf_counter()

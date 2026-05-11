@@ -10,6 +10,8 @@ export type CompositeSnapshot = {
   personalBest: number | null
   voiceHudVisible: boolean
   voiceMuted: boolean
+  /** Mid-session framing loss — show small non-blocking warning on recording */
+  framingLossWarning?: boolean
 }
 
 const ACCENT = '#ff5722'
@@ -197,6 +199,15 @@ function drawActiveDefault(ctx: CanvasRenderingContext2D, cw: number, ch: number
   const barH = Math.max(8, Math.round(Math.min(cw, ch) * 0.018))
   drawMotionBar(ctx, cw / 2, barY, barW, barH, snap.motion01)
 
+  if (snap.framingLossWarning) {
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'top'
+    const warnSize = Math.max(11, Math.round(Math.min(cw, ch) * 0.028))
+    ctx.font = `600 ${warnSize}px system-ui, sans-serif`
+    ctx.fillStyle = 'rgba(255,193,7,0.98)'
+    ctx.fillText('Move back into frame to continue', cw / 2, barY - pad * 3.2)
+  }
+
   const hintSize = Math.max(10, Math.round(Math.min(cw, ch) * 0.026))
   ctx.font = `${hintSize}px system-ui, sans-serif`
   ctx.fillStyle = 'rgba(230,232,238,0.65)'
@@ -298,6 +309,20 @@ function drawActiveSolo(ctx: CanvasRenderingContext2D, cw: number, ch: number, s
   ctx.font = `700 ${motionLabelSize}px system-ui, sans-serif`
   ctx.fillStyle = 'rgba(255,255,255,0.42)'
   ctx.fillText('MOTION', padX, ch - padTop - Math.min(ch * 0.045, 28))
+
+  if (snap.framingLossWarning) {
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'top'
+    const warnSize = Math.max(11, Math.round(Math.min(cw, ch) * 0.03))
+    ctx.font = `600 ${warnSize}px system-ui, sans-serif`
+    ctx.fillStyle = 'rgba(255,193,7,0.95)'
+    ctx.strokeStyle = 'rgba(0,0,0,0.35)'
+    ctx.lineWidth = 3
+    const msg = 'Move back into frame to continue'
+    const ty = padTop + timerCardH + 10
+    ctx.strokeText(msg, cw / 2, ty)
+    ctx.fillText(msg, cw / 2, ty)
+  }
 
   const barW = Math.min(240, cw * 0.7)
   const barH = 3

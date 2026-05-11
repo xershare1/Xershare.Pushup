@@ -17,6 +17,8 @@ type Props = {
   personalBest: number | null
   /** Session audio (voice milestones + sounds): shown when user opt-in preference is on. */
   voiceControl?: VoiceHudControlProps | null
+  /** Debounced mid-session framing loss (non-blocking). */
+  framingLossWarning?: boolean
 }
 
 function formatTimeLeft(sec: number): string {
@@ -62,6 +64,7 @@ export function ActiveSessionHud({
   variant = 'default',
   personalBest,
   voiceControl,
+  framingLossWarning = false,
 }: Props) {
   const voice = voiceControl?.show ? voiceControl : null
 
@@ -107,6 +110,11 @@ export function ActiveSessionHud({
           <p className="pushup-hud-solo-motion-label">Motion</p>
           <MotionBar value01={motion01} thin />
         </div>
+        {framingLossWarning ? (
+          <p className="pushup-hud-solo-framing-warn" role="status">
+            Move back into frame to continue
+          </p>
+        ) : null}
       </div>
     )
   }
@@ -138,6 +146,11 @@ export function ActiveSessionHud({
         {voice ? <VoiceToggleButton sessionMuted={voice.sessionMuted} onToggle={voice.onToggle} /> : null}
       </div>
       <MotionBar value01={motion01} />
+      {framingLossWarning ? (
+        <p className="pushup-hud-framing-warn" role="status">
+          Move back into frame to continue
+        </p>
+      ) : null}
       <p className="pushup-hud-soft-hint muted" style={{ margin: '0.5rem 0 0', fontSize: '0.85rem' }}>
         Keep your full body in frame—edges and cropping can cost reps. Controlled tempo and full range
         help.

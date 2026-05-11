@@ -8,6 +8,7 @@ import { fetchSoloSessions } from '../api/solo'
 import { fetchMyChallengeRecord } from '../api/users'
 import { countActiveChallenges } from '../lib/challengeParticipation'
 import { formatError } from '../lib/formatError'
+import { schedulePoseModelCacheWarm } from '../lib/pose/poseModelCacheWarm'
 import { getLifecycle } from '../lib/challengeLifecycle'
 import { PageLoading } from '../components/ui/PageLoading'
 import type { Challenge } from '../types/challenge'
@@ -133,6 +134,12 @@ export function Dashboard() {
       cancelled = true
     }
   }, [getToken])
+
+  useEffect(() => {
+    if (!loading && !error) {
+      schedulePoseModelCacheWarm()
+    }
+  }, [loading, error])
 
   const activeCount = useMemo(() => countActiveChallenges(challenges, userId), [challenges, userId])
 

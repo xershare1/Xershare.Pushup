@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { PushupSession } from '../components/pushupSession/PushupSession'
+import { schedulePoseModelCacheWarm } from '../lib/pose/poseModelCacheWarm'
 import { unlockWebSpeechFromUserGesture } from '../lib/voice/useVoiceCounter'
 
 import '../components/pushupSession/pushup-session.css'
@@ -22,6 +23,10 @@ function ClockIcon() {
  */
 export function SoloSession() {
   const [mode, setMode] = useState<Mode>('choose')
+
+  useEffect(() => {
+    schedulePoseModelCacheWarm()
+  }, [])
 
   function backToChoose() {
     setMode('choose')

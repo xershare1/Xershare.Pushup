@@ -1,0 +1,9 @@
+{
+  "cacheName": "pushup-pros-pose-model-v1",
+  "urls": [
+    "/models/pose/pose-cache-manifest.json",
+    "/models/pose/movenet-lightning-v4/model.json",
+    "/models/pose/movenet-lightning-v4/group1-shard1of2.bin",
+    "/models/pose/movenet-lightning-v4/group1-shard2of2.bin"
+  ]
+}

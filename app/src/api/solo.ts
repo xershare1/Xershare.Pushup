@@ -2,6 +2,7 @@ import { type ClerkGetToken, jsonFetchAuthed } from './client'
 import { isMockApiEnabled } from './config'
 import { HttpError } from './httpError'
 import { soloMultipartUploadToComplete } from './soloMultipartUpload'
+import type { SessionStartCaptureContext } from '../lib/capture/sessionCaptureContext'
 
 export type SoloSessionResponse = {
   sessionId: string
@@ -182,6 +183,7 @@ export async function createSoloSession(
     sessionId?: string
     /** Bump with Retry so a failed flight key can save again without joining a dead Promise. */
     saveRetryNonce?: number
+    captureContext?: SessionStartCaptureContext | null
   },
   options?: CreateSoloSessionOptions,
 ): Promise<SoloSessionResponse> {
@@ -222,6 +224,7 @@ async function runCreateSoloSession(
     video?: Blob | null
     sessionId?: string
     saveRetryNonce?: number
+    captureContext?: SessionStartCaptureContext | null
   },
   options?: CreateSoloSessionOptions,
 ): Promise<SoloSessionResponse> {
@@ -237,6 +240,7 @@ async function runCreateSoloSession(
   const hasVideo = Boolean(video && video.size > 0)
   const videoBytes = hasVideo ? video!.size : 0
   const mimeForLog = hasVideo ? (video!.type || 'video/webm').split(';')[0]!.trim() : ''
+  const captureContextPayload = params.captureContext ?? undefined
 
   const uploadStartedAt = performance.now()
   console.info('[solo] createSoloSession start', {
@@ -253,6 +257,7 @@ async function runCreateSoloSession(
         body: JSON.stringify({
           sessionId,
           reps: params.reps,
+          ...(captureContextPayload ? { captureContext: captureContextPayload } : {}),
         }),
       })
       logSoloUploadTelemetry('save_no_video', {
@@ -342,6 +347,7 @@ async function runCreateSoloSession(
           sessionId: prepared.sessionId,
           reps: params.reps,
           contentType: video!.type || 'video/webm',
+          ...(captureContextPayload ? { captureContext: captureContextPayload } : {}),
         }),
       })
       const completeMs = Math.round(performance.now() - tComplete)
@@ -387,6 +393,7 @@ async function runCreateSoloSession(
         sessionId: prepared.sessionId,
         reps: params.reps,
         contentType: video!.type || 'video/webm',
+        ...(captureContextPayload ? { captureContext: captureContextPayload } : {}),
       }),
     })
     const completeMs = Math.round(performance.now() - tComplete)
