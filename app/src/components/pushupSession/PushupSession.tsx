@@ -328,9 +328,9 @@ export function PushupSession({ onBack, variant = 'default', onSessionComplete }
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode: { ideal: facingMode },
-            width: { ideal: 960 },
-            height: { ideal: 540 },
-            frameRate: { ideal: 24 },
+            width: { ideal: 960, max: 960 },
+            height: { ideal: 540, max: 540 },
+            frameRate: { ideal: 24, max: 24 },
           },
           audio: false,
         })
@@ -374,6 +374,7 @@ export function PushupSession({ onBack, variant = 'default', onSessionComplete }
       activeSessionEndedRef.current = false
       activeFramingBadMsRef.current = 0
       lastPoseTimeRef.current = null
+      hipPrevRef.current = null
       startTransition(() => setFramingLossWarning(false))
     }
   }, [sessionState])
@@ -534,8 +535,8 @@ export function PushupSession({ onBack, variant = 'default', onSessionComplete }
       mime = 'video/webm'
     }
 
-    /** Roadmap ~3–5 MB / min class target for Solo; overlay legibility first. */
-    const TARGET_VIDEO_BPS = 1_600_000
+    /** ~3–5 decimal MB/min → ~400_000–667_000 bit/s (8×bytes/min/60); midpoint 4 MB/min = 533_333 bps. Solo overlay legibility. */
+    const TARGET_VIDEO_BPS = 533_333
 
     let recorder: MediaRecorder
     try {
@@ -1143,14 +1144,14 @@ export function PushupSession({ onBack, variant = 'default', onSessionComplete }
                     <p className="pushup-init-title">Initializing</p>
                     <p className="pushup-init-sub">
                       {!cameraReady
-                        ? 'Setting up camera; pose model downloads in parallel.'
+                        ? 'Setting up your camera. We are also getting everything else ready in the background.'
                         : detectorLoadState === 'loading'
                           ? poseCacheLikelyPrimed === true
-                            ? 'Opening the cached pose model…'
+                            ? 'Loading from a copy saved on this device…'
                             : poseCacheLikelyPrimed === false
-                              ? 'First-time pose model download — subsequent visits reuse a saved copy.'
-                              : 'Loading the pose model…'
-                          : 'Finishing camera and pose warm-up…'}
+                              ? 'First time here: this step may take a little longer. Later visits are quicker.'
+                              : 'Almost ready — stay on this screen.'
+                          : 'Finishing camera setup and a quick warm-up…'}
                     </p>
                   </>
                 )}

@@ -189,11 +189,25 @@ export function computeCaptureConfidence(params: {
 }
 
 export function hipMidpointFromPose(pose: Pose): { x: number; y: number } | null {
+  const HIP_SCORE_MIN = 0.15
   const lh = pose.keypoints[POSE_KEYPOINTS.LEFT_HIP]
   const rh = pose.keypoints[POSE_KEYPOINTS.RIGHT_HIP]
-  if (!lh || !rh) return null
-  if ((lh.score ?? 0) < 0.15 && (rh.score ?? 0) < 0.15) return null
-  return { x: (lh.x + rh.x) / 2, y: (lh.y + rh.y) / 2 }
+  const lOk = lh != null && (lh.score ?? 0) >= HIP_SCORE_MIN
+  const rOk = rh != null && (rh.score ?? 0) >= HIP_SCORE_MIN
+  if (!lOk && !rOk) return null
+  if (lOk && !rOk && lh) return { x: lh.x, y: lh.y }
+  if (!lOk && rOk && rh) return { x: rh.x, y: rh.y }
+  if (lOk && rOk && lh && rh) {
+    const wL = lh.score ?? 0
+    const wR = rh.score ?? 0
+    const w = wL + wR
+    if (w <= 0) return { x: (lh.x + rh.x) / 2, y: (lh.y + rh.y) / 2 }
+    return {
+      x: (lh.x * wL + rh.x * wR) / w,
+      y: (lh.y * wL + rh.y * wR) / w,
+    }
+  }
+  return null
 }
 
 export function pickGuidance(params: {

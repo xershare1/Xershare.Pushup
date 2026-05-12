@@ -101,8 +101,8 @@ export function ReadinessChecklist(props: Props) {
           </ul>
           {setupFootnotes.length ? (
             <div className="pushup-readiness-solo-footnotes">
-              {setupFootnotes.map((line) => (
-                <p key={line} className="muted pushup-readiness-solo-footnote-line">
+              {setupFootnotes.map((line, idx) => (
+                <p key={`${idx}-${line}`} className="muted pushup-readiness-solo-footnote-line">
                   {line}
                 </p>
               ))}

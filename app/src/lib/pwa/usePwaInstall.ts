@@ -44,11 +44,18 @@ function attachDeferredPromptWindowListenersOnce(): void {
   })
 }
 
+/**
+ * Call once from the client entry (e.g. `main.tsx`) before route render so
+ * `beforeinstallprompt` / `appinstalled` are not missed. Safe on SSR: no-ops when `window` is undefined.
+ */
+export function initPwaInstallListeners(): void {
+  attachDeferredPromptWindowListenersOnce()
+}
+
 function subscribeDeferredPromptAvailability(listener: () => void) {
   if (typeof window === 'undefined') {
     return () => {}
   }
-  attachDeferredPromptWindowListenersOnce()
   deferredPromptListeners.add(listener)
   return () => {
     deferredPromptListeners.delete(listener)

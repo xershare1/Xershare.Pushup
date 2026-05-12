@@ -9,16 +9,28 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 /** Injected into the service worker (must match pose-cache-manifest.json). */
 function readPoseModelCacheName(): string {
+  const manifestPath = path.join(__dirname, 'public/models/pose/pose-cache-manifest.json')
+  let raw: string
   try {
-    const raw = readFileSync(
-      path.join(__dirname, 'public/models/pose/pose-cache-manifest.json'),
-      'utf8',
-    )
-    const name = (JSON.parse(raw) as { cacheName?: string }).cacheName
-    return typeof name === 'string' && name.length > 0 ? name : 'pushup-pros-pose-model-v1'
-  } catch {
-    return 'pushup-pros-pose-model-v1'
+    raw = readFileSync(manifestPath, 'utf8')
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    throw new Error(`Could not read pose cache manifest at ${manifestPath}: ${msg}`)
   }
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    throw new Error(`Could not parse pose cache manifest JSON (${manifestPath}): ${msg}`)
+  }
+  const cacheName = parsed && typeof parsed === 'object' && 'cacheName' in parsed ? (parsed as { cacheName: unknown }).cacheName : undefined
+  if (typeof cacheName !== 'string' || cacheName.trim().length === 0) {
+    throw new Error(
+      `pose-cache-manifest.json must include a non-empty string "cacheName"; got ${JSON.stringify(cacheName)}`,
+    )
+  }
+  return cacheName
 }
 
 const poseModelCacheName = readPoseModelCacheName()

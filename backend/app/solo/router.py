@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
 import time
 import uuid
@@ -58,6 +59,13 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/solo", tags=["solo"])
 
+_LOG_ID_HASH_HEX_CHARS = 16
+
+
+def _solo_log_id_hash(raw: str) -> str:
+    """One-way, truncated SHA256 for stable correlation without raw PII in log extras."""
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:_LOG_ID_HASH_HEX_CHARS]
+
 
 def _log_solo_prepare_timing(
     *,
@@ -76,8 +84,8 @@ def _log_solo_prepare_timing(
     logger.info(
         "solo_session_prepare_timing",
         extra={
-            "session_id": session_id,
-            "user_id": user_id,
+            "session_id_hash": _solo_log_id_hash(session_id),
+            "user_id_hash": _solo_log_id_hash(user_id),
             "video_bytes": video_bytes,
             "strategy": strategy,
             "clerk_jwt_verify_ms": jwt_ms,
@@ -188,8 +196,8 @@ def _solo_idempotent_prepare_out(existing: SoloSession, business_session_id: uui
     logger.info(
         "solo_session_prepare_idempotent_hit",
         extra={
-            "session_id": str(business_session_id),
-            "user_id": str(user_uuid),
+            "session_id_hash": _solo_log_id_hash(str(business_session_id)),
+            "user_id_hash": _solo_log_id_hash(str(user_uuid)),
         },
     )
     return SoloSessionPrepareUploadOut(
@@ -258,8 +266,8 @@ def prepare_solo_session_upload(
         logger.info(
             "solo_session_prepare_multipart_strategy",
             extra={
-                "session_id": sid_str,
-                "user_id": str(user_uuid),
+                "session_id_hash": _solo_log_id_hash(sid_str),
+                "user_id_hash": _solo_log_id_hash(str(user_uuid)),
                 "video_bytes": payload.videoSizeBytes,
                 "multipart_threshold_bytes": threshold,
             },
@@ -310,8 +318,8 @@ def prepare_solo_session_upload(
     logger.info(
         "solo_session_prepare_upload",
         extra={
-            "session_id": sid_str,
-            "user_id": str(user_uuid),
+            "session_id_hash": _solo_log_id_hash(sid_str),
+            "user_id_hash": _solo_log_id_hash(str(user_uuid)),
             "video_bytes": payload.videoSizeBytes,
         },
     )

@@ -15,10 +15,18 @@ function loadPoseCacheManifest(): Promise<PoseCacheManifest | null> {
           credentials: 'same-origin',
           cache: 'no-cache',
         })
-        if (!res.ok) return null
+        if (!res.ok) {
+          manifestPromise = null
+          return null
+        }
         const data = (await res.json()) as PoseCacheManifest
-        return typeof data.cacheName === 'string' && Array.isArray(data.urls) ? data : null
+        if (typeof data.cacheName !== 'string' || !Array.isArray(data.urls)) {
+          manifestPromise = null
+          return null
+        }
+        return data
       } catch {
+        manifestPromise = null
         return null
       }
     })()

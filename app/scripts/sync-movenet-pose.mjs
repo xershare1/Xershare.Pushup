@@ -28,6 +28,35 @@ async function fetchJson(url) {
   return res.json()
 }
 
+/**
+ * Normalize a weightsManifest path to a safe relative POSIX-style path.
+ * Returns null if the value cannot be used (absolute, .., URL-like, etc.).
+ */
+function normalizeManifestRel(rel) {
+  if (typeof rel !== 'string') return null
+  const s = rel.trim()
+  if (!s || s.includes('://') || s.includes('\0')) return null
+  if (/^[a-zA-Z]:/.test(s) || s.startsWith('//')) return null
+  const parts = s.split(/[/\\]+/).filter(Boolean)
+  const out = []
+  for (const part of parts) {
+    if (part === '..') return null
+    if (part === '.') continue
+    out.push(part)
+  }
+  if (!out.length) return null
+  return out.join('/')
+}
+
+function assertResolvedUnderOutDir(normalizedRel) {
+  const resolved = path.resolve(OUT_DIR, normalizedRel)
+  const base = path.resolve(OUT_DIR)
+  const relToBase = path.relative(base, resolved)
+  if (relToBase.startsWith('..') || path.isAbsolute(relToBase)) {
+    throw new Error(`weightsManifest path escapes output directory: ${JSON.stringify(normalizedRel)}`)
+  }
+}
+
 async function main() {
   await mkdir(OUT_DIR, { recursive: true })
 
@@ -44,7 +73,13 @@ async function main() {
   for (const entry of manifests) {
     if (!entry || !Array.isArray(entry.paths)) continue
     for (const p of entry.paths) {
-      if (typeof p === 'string' && p.length) relPaths.add(p)
+      if (typeof p !== 'string' || !p.trim()) continue
+      const norm = normalizeManifestRel(p)
+      if (!norm) {
+        throw new Error(`Invalid weightsManifest path: ${JSON.stringify(p)}`)
+      }
+      assertResolvedUnderOutDir(norm)
+      relPaths.add(norm)
     }
   }
 
@@ -60,7 +95,7 @@ async function main() {
   const basePath = `/models/pose/${MODEL_SEGMENT}/`
   const urls = ['/models/pose/pose-cache-manifest.json', `${basePath}model.json`]
   for (const rel of [...relPaths].sort()) {
-    urls.push(`${basePath}${rel.replace(/^\/+/, '')}`)
+    urls.push(`${basePath}${rel}`)
   }
 
   const manifest = {
