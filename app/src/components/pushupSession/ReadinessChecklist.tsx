@@ -10,6 +10,8 @@ type Props =
   | {
       variant: 'solo'
       checklist: SoloReadinessChecklist
+      /** Extra lines under checklist (distance, device prop). */
+      setupFootnotes?: string[]
     }
 
 function CheckRow({
@@ -80,7 +82,7 @@ function SilhouetteGuide() {
 
 export function ReadinessChecklist(props: Props) {
   if (props.variant === 'solo') {
-    const { checklist } = props
+    const { checklist, setupFootnotes = [] } = props
     return (
       <div className="pushup-readiness-solo-wrap">
         <SilhouetteGuide />
@@ -97,6 +99,15 @@ export function ReadinessChecklist(props: Props) {
             <SoloCheckRow label="Arms in frame" status={checklist.armsForm} />
             <SoloCheckRow label="Hold position steady" status={checklist.holdSteady} />
           </ul>
+          {setupFootnotes.length ? (
+            <div className="pushup-readiness-solo-footnotes">
+              {setupFootnotes.map((line, idx) => (
+                <p key={`${idx}-${line}`} className="muted pushup-readiness-solo-footnote-line">
+                  {line}
+                </p>
+              ))}
+            </div>
+          ) : null}
         </motion.div>
         <p className="pushup-readiness-solo-hint">Hold a push-up plank position for 2 seconds</p>
       </div>

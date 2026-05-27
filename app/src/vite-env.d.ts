@@ -1,4 +1,5 @@
 /// <reference types="vite/client" />
+/// <reference types="vite-plugin-pwa/client" />
 
 interface ImportMetaEnv {
   /** Base URL for FastAPI (no trailing slash). Optional when using mock API. */
@@ -9,4 +10,16 @@ interface ImportMetaEnv {
 
 interface ImportMeta {
   readonly env: ImportMetaEnv
+}
+
+declare module '*.svg?url' {
+  const src: string
+  export default src
+}
+
+/** Chromium install prompt (narrow typing for Safari / older TS libs). */
+interface BeforeInstallPromptEvent extends Event {
+  readonly platforms?: string[]
+  readonly userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
+  prompt(): Promise<void>
 }

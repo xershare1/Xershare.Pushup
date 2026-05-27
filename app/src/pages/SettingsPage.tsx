@@ -1,6 +1,7 @@
 import { PageLoading } from '../components/ui/PageLoading'
 import { useVoiceRepCounterPreference } from '../context/useVoiceRepCounterPreference'
 
+import { PwaInstallSettingsSection } from './PwaInstallSettingsSection'
 import './SettingsPage.css'
 
 /**
@@ -45,6 +46,8 @@ export function SettingsPage() {
           />
         </label>
       </div>
+
+      <PwaInstallSettingsSection />
     </section>
   )
 }

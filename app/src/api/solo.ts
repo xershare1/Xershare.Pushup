@@ -2,6 +2,7 @@ import { type ClerkGetToken, jsonFetchAuthed } from './client'
 import { isMockApiEnabled } from './config'
 import { HttpError } from './httpError'
 import { soloMultipartUploadToComplete } from './soloMultipartUpload'
+import type { SessionStartCaptureContext } from '../lib/capture/sessionCaptureContext'
 
 export type SoloSessionResponse = {
   sessionId: string
@@ -97,6 +98,31 @@ function stripNonPrintableExceptTab(s: string): string {
 
 const SIMPLE_PUT_TIMEOUT_MS = 120_000
 
+function logSoloUploadTelemetry(stage: string, payload: Record<string, unknown>): void {
+  if (!import.meta.env.DEV) return
+  try {
+    const nav = typeof navigator !== 'undefined' ? navigator : undefined
+    const c = nav && 'connection' in nav ? (nav as Navigator & { connection?: NetworkInformation }).connection : undefined
+
+    console.info('[solo-upload]', {
+      stage,
+      ...payload,
+      userAgent: nav?.userAgent,
+      effectiveType: c?.effectiveType,
+      downlinkMbps: c?.downlink,
+      saveData: c?.saveData,
+    })
+  } catch {
+    /* ignore */
+  }
+}
+
+interface NetworkInformation {
+  effectiveType?: string
+  downlink?: number
+  saveData?: boolean
+}
+
 function putBlobToS3(
   uploadUrl: string,
   blob: Blob,
@@ -138,7 +164,7 @@ export type CreateSoloSessionOptions = {
   onPhaseChange?: (phase: SoloCloudPhase) => void
 }
 
-/** In-flight cloud save per logical attempt (session id + retry nonce). Strict Mode / double effects join the same Promise. */
+/** In-flight cloud save keyed by session + retry nonce; Strict Mode joins the same Promise. */
 const soloCreateInFlight = new Map<string, Promise<SoloSessionResponse>>()
 
 function soloCreateFlightKey(sessionId: string, saveRetryNonce?: number): string {
@@ -155,8 +181,9 @@ export async function createSoloSession(
     reps: number
     video?: Blob | null
     sessionId?: string
-    /** Bumps with "Retry save"; new key so a failed attempt can run again. */
+    /** Bump with Retry so a failed flight key can save again without joining a dead Promise. */
     saveRetryNonce?: number
+    captureContext?: SessionStartCaptureContext | null
   },
   options?: CreateSoloSessionOptions,
 ): Promise<SoloSessionResponse> {
@@ -197,6 +224,7 @@ async function runCreateSoloSession(
     video?: Blob | null
     sessionId?: string
     saveRetryNonce?: number
+    captureContext?: SessionStartCaptureContext | null
   },
   options?: CreateSoloSessionOptions,
 ): Promise<SoloSessionResponse> {
@@ -210,8 +238,11 @@ async function runCreateSoloSession(
   const sessionId = params.sessionId!
   const video = params.video
   const hasVideo = Boolean(video && video.size > 0)
-  const startedAt = performance.now()
   const videoBytes = hasVideo ? video!.size : 0
+  const mimeForLog = hasVideo ? (video!.type || 'video/webm').split(';')[0]!.trim() : ''
+  const captureContextPayload = params.captureContext ?? undefined
+
+  const uploadStartedAt = performance.now()
   console.info('[solo] createSoloSession start', {
     sessionId,
     reps: params.reps,
@@ -221,24 +252,23 @@ async function runCreateSoloSession(
 
   try {
     if (!hasVideo) {
-      console.info('[solo] phase=complete-upload-no-video', { sessionId })
-      const out = await jsonFetchAuthed<SoloSessionResponse>(getToken, '/solo/session/complete-upload', {
+      const row = await jsonFetchAuthed<SoloSessionResponse>(getToken, '/solo/session/complete-upload', {
         method: 'POST',
         body: JSON.stringify({
           sessionId,
           reps: params.reps,
+          ...(captureContextPayload ? { captureContext: captureContextPayload } : {}),
         }),
       })
-      console.info('[solo] createSoloSession done', {
+      logSoloUploadTelemetry('save_no_video', {
         sessionId,
-        totalMs: Math.round(performance.now() - startedAt),
-        videoBytes: 0,
+        reps: params.reps,
+        totalMs: Math.round(performance.now() - uploadStartedAt),
       })
-      return out
+      return row
     }
 
     const tPrepare = performance.now()
-    console.info('[solo] phase=prepare-upload start', { sessionId, videoBytes })
     const prepared = await jsonFetchAuthed<SoloSessionPrepareResponse>(
       getToken,
       '/solo/session/prepare-upload',
@@ -252,17 +282,21 @@ async function runCreateSoloSession(
         }),
       },
     )
-    console.info('[solo] phase=prepare-upload done', {
-      sessionId,
-      ms: Math.round(performance.now() - tPrepare),
-      strategy: prepared.uploadStrategy,
-      idempotentVideoUrl: Boolean(prepared.videoUrl),
+    const prepareMs = Math.round(performance.now() - tPrepare)
+    logSoloUploadTelemetry('prepare_upload_done', {
+      sessionId: prepared.sessionId,
+      prepareMs,
+      strategy: prepared.uploadStrategy ?? 'simple_put',
+      videoBytes,
+      mime: mimeForLog,
     })
 
     if (prepared.videoUrl) {
-      console.info('[solo] createSoloSession done (idempotent prepare hit)', {
-        sessionId,
-        totalMs: Math.round(performance.now() - startedAt),
+      logSoloUploadTelemetry('prepare_idempotent_hit', {
+        sessionId: prepared.sessionId,
+        prepareMs,
+        videoBytes,
+        mime: mimeForLog,
       })
       return {
         sessionId: prepared.sessionId,
@@ -287,16 +321,16 @@ async function runCreateSoloSession(
         maxConcurrency: prepared.multipartMaxConcurrency ?? undefined,
         onUploadProgress: progress,
       })
-      console.info('[solo] phase=multipart done', {
-        sessionId,
-        ms: Math.round(performance.now() - tMpu),
-        kind: assembled.kind,
-      })
+      const mpuMs = Math.round(performance.now() - tMpu)
 
       if (assembled.kind === 'already_finished') {
-        console.info('[solo] createSoloSession done (multipart already_finished)', {
-          sessionId,
-          totalMs: Math.round(performance.now() - startedAt),
+        const kbps = mpuMs > 0 ? Math.round((videoBytes / 1024 / (mpuMs / 1000)) * 100) / 100 : 0
+        logSoloUploadTelemetry('multipart_already_finished', {
+          sessionId: assembled.sessionId,
+          mpuMs,
+          videoBytes,
+          mime: mimeForLog,
+          effectiveKBps: kbps,
         })
         return {
           sessionId: assembled.sessionId,
@@ -306,26 +340,30 @@ async function runCreateSoloSession(
       }
 
       onPhaseChange?.('processing')
-      console.info('[solo] phase=complete-upload start', { sessionId })
       const tComplete = performance.now()
-      const out = await jsonFetchAuthed<SoloSessionResponse>(getToken, '/solo/session/complete-upload', {
+      const finalized = await jsonFetchAuthed<SoloSessionResponse>(getToken, '/solo/session/complete-upload', {
         method: 'POST',
         body: JSON.stringify({
           sessionId: prepared.sessionId,
           reps: params.reps,
           contentType: video!.type || 'video/webm',
+          ...(captureContextPayload ? { captureContext: captureContextPayload } : {}),
         }),
       })
-      console.info('[solo] phase=complete-upload done', {
-        sessionId,
-        ms: Math.round(performance.now() - tComplete),
-      })
-      console.info('[solo] createSoloSession done', {
-        sessionId,
-        totalMs: Math.round(performance.now() - startedAt),
+      const completeMs = Math.round(performance.now() - tComplete)
+      const totalMs = Math.round(performance.now() - uploadStartedAt)
+      logSoloUploadTelemetry('multipart_save_done', {
+        sessionId: prepared.sessionId,
+        prepareMs,
+        mpuMs,
+        completeMs,
+        totalMs,
         videoBytes,
+        mime: mimeForLog,
+        effectiveKBps:
+          totalMs > 0 ? Math.round((videoBytes / 1024 / (totalMs / 1000)) * 100) / 100 : 0,
       })
-      return out
+      return finalized
     }
 
     const uploadUrl = prepared.uploadUrl
@@ -334,39 +372,48 @@ async function runCreateSoloSession(
     }
 
     onPhaseChange?.('uploading')
-    console.info('[solo] phase=simple-put start', { sessionId, videoBytes })
     const tPut = performance.now()
     await putBlobToS3(uploadUrl, video!, prepared.uploadHeaders, progress)
-    console.info('[solo] phase=simple-put done', {
-      sessionId,
-      ms: Math.round(performance.now() - tPut),
+    const putMs = Math.round(performance.now() - tPut)
+    const kbps = putMs > 0 ? Math.round((videoBytes / 1024 / (putMs / 1000)) * 100) / 100 : 0
+    logSoloUploadTelemetry('s3_simple_put_done', {
+      sessionId: prepared.sessionId,
+      prepareMs,
+      putMs,
+      videoBytes,
+      mime: mimeForLog,
+      effectiveKBps: kbps,
     })
-    onPhaseChange?.('processing')
 
-    console.info('[solo] phase=complete-upload start', { sessionId })
+    onPhaseChange?.('processing')
     const tComplete = performance.now()
-    const out = await jsonFetchAuthed<SoloSessionResponse>(getToken, '/solo/session/complete-upload', {
+    const finalized = await jsonFetchAuthed<SoloSessionResponse>(getToken, '/solo/session/complete-upload', {
       method: 'POST',
       body: JSON.stringify({
         sessionId: prepared.sessionId,
         reps: params.reps,
         contentType: video!.type || 'video/webm',
+        ...(captureContextPayload ? { captureContext: captureContextPayload } : {}),
       }),
     })
-    console.info('[solo] phase=complete-upload done', {
-      sessionId,
-      ms: Math.round(performance.now() - tComplete),
-    })
-    console.info('[solo] createSoloSession done', {
-      sessionId,
-      totalMs: Math.round(performance.now() - startedAt),
+    const completeMs = Math.round(performance.now() - tComplete)
+    const totalMs = Math.round(performance.now() - uploadStartedAt)
+    logSoloUploadTelemetry('simple_put_save_done', {
+      sessionId: prepared.sessionId,
+      prepareMs,
+      putMs,
+      completeMs,
+      totalMs,
       videoBytes,
+      mime: mimeForLog,
+      effectiveKBps: totalMs > 0 ? Math.round((videoBytes / 1024 / (totalMs / 1000)) * 100) / 100 : 0,
     })
-    return out
+    return finalized
   } catch (e) {
-    console.warn('[solo] createSoloSession error', {
+    logSoloUploadTelemetry('save_error', {
       sessionId,
-      totalMs: Math.round(performance.now() - startedAt),
+      videoBytes,
+      mime: mimeForLog,
       err: e instanceof Error ? e.message : String(e),
     })
     if (e instanceof HttpError) {

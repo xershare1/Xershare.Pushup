@@ -9,10 +9,10 @@ export function useBlobUrl(blob: Blob | null): string | null {
       setUrl(null)
       return
     }
-    const u = URL.createObjectURL(blob)
-    setUrl(u)
+    const objectUrl = URL.createObjectURL(blob)
+    setUrl(objectUrl)
     return () => {
-      URL.revokeObjectURL(u)
+      URL.revokeObjectURL(objectUrl)
     }
   }, [blob])
 

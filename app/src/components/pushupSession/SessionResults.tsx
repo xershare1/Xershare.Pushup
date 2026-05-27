@@ -18,6 +18,7 @@ import { createSoloSession, type SoloCloudPhase } from '../../api/solo'
 import { loadSoloMultipartState, soloAbortMultipartUpload } from '../../api/soloMultipartUpload'
 import { formatError } from '../../lib/formatError'
 import { getSoloResultsFeedbackLine, getWorkoutFeedback } from '../../lib/workoutFeedback'
+import type { SessionStartCaptureContext } from '../../lib/capture/sessionCaptureContext'
 
 /** CJS/ESM interop: Vite may give the component or a module object with `.default`. */
 const CountUp: FC<CountUpProps> =
@@ -36,6 +37,7 @@ type Props = {
   sessionDurationSec?: number
   priorPersonalBest?: number | null
   bestInLast7Days?: number | null
+  sessionCaptureContext?: SessionStartCaptureContext | null
 }
 
 function formatMmSs(totalSec: number): string {
@@ -77,6 +79,7 @@ export function SessionResults({
   sessionDurationSec = 60,
   priorPersonalBest = null,
   bestInLast7Days = null,
+  sessionCaptureContext = null,
 }: Props) {
   const { getToken } = useAuth()
   const feedbackDefault = getWorkoutFeedback(reps)
@@ -109,6 +112,11 @@ export function SessionResults({
   const getTokenRef = useRef(getToken)
   const soloStatusRef = useRef(soloStatus)
   const soloSyncKeyRef = useRef<string | null>(soloSyncKey)
+  const captureContextRef = useRef<SessionStartCaptureContext | null>(sessionCaptureContext)
+
+  useLayoutEffect(() => {
+    captureContextRef.current = sessionCaptureContext
+  }, [sessionCaptureContext])
 
   useLayoutEffect(() => {
     soloStatusRef.current = soloStatus
@@ -159,6 +167,17 @@ export function SessionResults({
     window.addEventListener('pagehide', onPageHide)
     return () => window.removeEventListener('pagehide', onPageHide)
   }, [])
+
+  /** Warn on tab close / hard refresh during upload — does not affect in-app SPA navigation. */
+  useEffect(() => {
+    if (soloStatus !== 'saving') return
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', onBeforeUnload)
+    return () => window.removeEventListener('beforeunload', onBeforeUnload)
+  }, [soloStatus])
 
   const downloadFilename = useMemo(() => {
     if (!sessionRecording) return 'pushup-session.webm'
@@ -215,7 +234,8 @@ export function SessionResults({
             reps: repsRef.current,
             video: recordingRef.current,
             sessionId: soloSyncKey,
-            saveRetryNonce: saveRetryNonce,
+            saveRetryNonce,
+            captureContext: captureContextRef.current,
           },
           {
             onUploadProgress: onSoloUploadProgressBridge,
@@ -338,6 +358,11 @@ export function SessionResults({
                 {soloCloudPhase === 'processing' ? (
                   <progress className="pushup-results-solo-save-progress" aria-label="Processing upload" />
                 ) : null}
+                <span className="pushup-results-solo-save-hint">
+                  Keep this browser tab open until the upload completes. Closing or refreshing can interrupt saving.
+                  You can use other routes in this app — your recording will appear in session history shortly after it
+                  finishes.
+                </span>
               </div>
             </div>
           ) : null}
@@ -429,6 +454,10 @@ export function SessionResults({
           {soloCloudPhase === 'processing' ? (
             <progress aria-label="Processing upload" style={{ width: '100%', marginTop: '0.5rem', height: '6px' }} />
           ) : null}
+          <p className="muted" style={{ marginTop: '0.5rem', fontSize: '0.875rem', lineHeight: 1.35 }}>
+            Keep this browser tab open until the upload completes. Closing or refreshing can interrupt saving. Other
+            pages in this app are fine — your recording will show in session history shortly after upload finishes.
+          </p>
         </div>
       ) : null}
       {soloStatus === 'saved' ? (

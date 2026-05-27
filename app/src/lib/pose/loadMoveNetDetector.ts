@@ -15,6 +15,7 @@ export function loadMoveNetDetector(): Promise<poseDetection.PoseDetector> {
       return poseDetection.createDetector(poseDetection.SupportedModels.MoveNet, {
         modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
         minPoseScore: 0.3,
+        modelUrl: '/models/pose/movenet-lightning-v4/model.json',
       })
     })()
   }

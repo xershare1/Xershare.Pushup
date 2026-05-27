@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import logging
+import threading
 import uuid
+from typing import Any
 
 from app.config import (
     get_aws_region,
@@ -13,6 +15,9 @@ from app.config import (
 )
 
 logger = logging.getLogger(__name__)
+
+_s3_lock = threading.Lock()
+_s3_client: Any = None
 
 _ALLOWED_VIDEO_TYPES = frozenset(
     {
@@ -25,9 +30,16 @@ _ALLOWED_VIDEO_TYPES = frozenset(
 
 
 def _client():
+    """Singleton S3 client — avoids cold client construction per presign/head call."""
+    global _s3_client
+    if _s3_client is not None:
+        return _s3_client
     import boto3
 
-    return boto3.client("s3", region_name=get_aws_region())
+    with _s3_lock:
+        if _s3_client is None:
+            _s3_client = boto3.client("s3", region_name=get_aws_region())
+    return _s3_client
 
 
 def solo_session_video_key(user_id: uuid.UUID, session_id: uuid.UUID) -> str:

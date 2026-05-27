@@ -7,7 +7,7 @@ import logging
 import time
 
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt import PyJWKClient
 
@@ -59,6 +59,7 @@ def clerk_user_id_from_token(token: str) -> str:
 
 
 async def require_clerk_user_id(
+    request: Request,
     creds: HTTPAuthorizationCredentials | None = Depends(_bearer),
 ) -> str:
     if creds is None or (creds.scheme or "").lower() != "bearer":
@@ -68,11 +69,11 @@ async def require_clerk_user_id(
         )
     t0 = time.perf_counter()
     try:
-        sub = await asyncio.to_thread(clerk_user_id_from_token, creds.credentials)
+        user_id = await asyncio.to_thread(clerk_user_id_from_token, creds.credentials)
     finally:
-        verify_ms = int((time.perf_counter() - t0) * 1000)
-        if verify_ms > 50:
-            logger.info("clerk_jwt_verify_ms=%s", verify_ms)
-        else:
-            logger.debug("clerk_jwt_verify_ms=%s", verify_ms)
-    return sub
+        setattr(
+            request.state,
+            "clerk_jwt_verify_ms",
+            int((time.perf_counter() - t0) * 1000),
+        )
+    return user_id

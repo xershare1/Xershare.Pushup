@@ -19,6 +19,7 @@ import { Dashboard } from '../pages/Dashboard'
 import { CreditsPage } from '../pages/CreditsPage'
 import { Admin } from '../pages/Admin'
 import { SettingsPage } from '../pages/SettingsPage'
+import { SecretPwaInstallPage } from '../pages/SecretPwaInstallPage'
 import { RequireAdmin } from '../components/auth/RequireAdmin'
 
 function ChallengeResultRedirect() {
@@ -165,6 +166,14 @@ export function AppRoutes() {
               <RequireAdmin>
                 <Admin />
               </RequireAdmin>
+            </RequireSessionAuth>
+          }
+        />
+        <Route
+          path="/__/pwa-install"
+          element={
+            <RequireSessionAuth>
+              <SecretPwaInstallPage />
             </RequireSessionAuth>
           }
         />

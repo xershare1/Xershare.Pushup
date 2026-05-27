@@ -3,8 +3,13 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 import { ClerkProvider } from '@clerk/react'
+import { initPwaInstallListeners } from './lib/pwa/usePwaInstall'
+import { registerSW } from 'virtual:pwa-register'
 
 const publishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string;
+
+registerSW({ immediate: true })
+initPwaInstallListeners()
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ClerkProvider
