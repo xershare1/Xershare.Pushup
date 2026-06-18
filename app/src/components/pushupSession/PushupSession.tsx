@@ -211,6 +211,8 @@ export function PushupSession({ onBack, variant = 'default', onSessionComplete }
   const pushupServiceRef = useRef(new PushupService())
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const recordedChunksRef = useRef<BlobPart[]>([])
+  const recordStartTimeRef = useRef<number | null>(null)
+  const recordTargetBpsRef = useRef<number | null>(null)
   const warmupFramesRef = useRef(0)
 
   const repTrackerRef = useRef(createInitialFrameRepTracker())
@@ -427,7 +429,21 @@ export function PushupSession({ onBack, variant = 'default', onSessionComplete }
     }
     const parts = recordedChunksRef.current
     if (parts.length === 0) return null
-    return new Blob(parts, { type: mimeType })
+    const blob = new Blob(parts, { type: mimeType })
+    const recordStart = recordStartTimeRef.current
+    if (recordStart != null) {
+      const durationSec = (Date.now() - recordStart) / 1000
+      if (import.meta.env.DEV) {
+        console.log(
+          '[Recording Stop] blobSize=' + blob.size +
+          ' duration=' + durationSec.toFixed(1) + 's' +
+          ' effectiveMbps=' + ((blob.size * 8) / durationSec / 1_000_000).toFixed(2),
+        )
+      }
+      recordStartTimeRef.current = null
+      recordTargetBpsRef.current = null
+    }
+    return blob
   }, [])
 
   const finishSession = useCallback(async () => {
@@ -494,8 +510,9 @@ export function PushupSession({ onBack, variant = 'default', onSessionComplete }
     let raf = 0
 
     const resizeCanvas = () => {
-      const w = Math.max(2, Math.round(wrap.clientWidth))
-      const h = Math.max(2, Math.round(wrap.clientHeight))
+      const dpr = Math.min(window.devicePixelRatio || 1, 2)
+      const w = Math.max(2, Math.round(wrap.clientWidth * dpr))
+      const h = Math.max(2, Math.round(wrap.clientHeight * dpr))
       if (canvas.width !== w || canvas.height !== h) {
         canvas.width = w
         canvas.height = h
@@ -535,8 +552,8 @@ export function PushupSession({ onBack, variant = 'default', onSessionComplete }
       mime = 'video/webm'
     }
 
-    /** ~3–5 decimal MB/min → ~400_000–667_000 bit/s (8×bytes/min/60); midpoint 4 MB/min = 533_333 bps. Solo overlay legibility. */
-    const TARGET_VIDEO_BPS = 533_333
+    /** ~19 MB/min at 2.5 Mbps; supports Retina canvas at full DPR. */
+    const TARGET_VIDEO_BPS = 2_500_000
 
     let recorder: MediaRecorder
     try {
@@ -568,15 +585,33 @@ export function PushupSession({ onBack, variant = 'default', onSessionComplete }
       return
     }
 
-    const tick = () => {
+    recordStartTimeRef.current = Date.now()
+    recordTargetBpsRef.current = TARGET_VIDEO_BPS
+    if (import.meta.env.DEV) {
+      const dprCap = Math.min(window.devicePixelRatio || 1, 2)
+      console.log(
+        '[Recording Start] canvas=' + canvas.width + 'x' + canvas.height +
+        ' dpr=' + window.devicePixelRatio + ' dprCap=' + dprCap +
+        ' mime=' + recorder.mimeType +
+        ' targetBps=' + TARGET_VIDEO_BPS,
+      )
+    }
+
+    /** Throttle compositor to the capture rate so we don't do 4× pixel work at 60fps for a 24fps stream. */
+    const COMPOSITE_INTERVAL = 1000 / 24
+    let lastCompositeTime = 0
+
+    const tick = (timestamp: number) => {
       if (!alive) return
+      raf = requestAnimationFrame(tick)
+      if (timestamp - lastCompositeTime < COMPOSITE_INTERVAL) return
+      lastCompositeTime = timestamp
       resizeCanvas()
       const ctx = canvas.getContext('2d')
       const snap = compositeSnapshotRef.current
       if (ctx && snap && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
         composePushupRecordingFrame(ctx, video, snap)
       }
-      raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)
 

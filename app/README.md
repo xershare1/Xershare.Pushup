@@ -32,11 +32,26 @@ The challenge start screen runs **MoveNet** (TensorFlow.js `@tensorflow-models/p
 
 Vite aliases `@mediapipe/pose` to a small shim because the published package is UMD-only and breaks ESM bundling; only MoveNet is needed at runtime.
 
+## Pushup algorithm lab (dev only)
+
+Route: `/dev/pushup-lab` (Vite `import.meta.env.DEV` only). Solo and challenge sessions share the same rep counter (`pushupRepTracking.ts` + `pushupService.ts`).
+
+### Tune workflow
+
+1. **Record** — Run a solo or challenge set in [`PushupSession`](src/components/pushupSession/PushupSession.tsx). On the results screen (dev), click **Analyze in pushup lab** or download the session video and upload it manually.
+2. **Replay & tune** — In the lab, enable **Run analysis** while playing the video. Adjust thresholds in the panel (saved to `localStorage`). Optional: **Simulate framing-loss pause** and **Flip horizontal** for live-session parity. Set **Expected reps** to compare counts.
+3. **Export** — **Download CSV** for trends (one row per frame); **Download JSON** includes `algorithmConfig`, `repEvents`, and full per-frame debug.
+4. **Promote** — Copy tuned values into [`src/lib/pose/pushupAlgorithmConfig.ts`](src/lib/pose/pushupAlgorithmConfig.ts) (`DEFAULT_PUSHUP_ALGORITHM_CONFIG`), commit, and redeploy. Live solo and challenge pick up the new defaults automatically.
+
+Shared config module: [`src/lib/pose/pushupAlgorithmConfig.ts`](src/lib/pose/pushupAlgorithmConfig.ts).
+
 ## Routes
 
 | Path | Page |
 |------|------|
 | `/` | Home / entry |
+| `/solo` | Solo pushup session |
+| `/dev/pushup-lab` | Algorithm lab (dev only) |
 | `/challenge`, `/challenge/create` | Create challenge (wizard) |
 | `/challenge/start` | Redirects to `/challenge` (legacy URL) |
 | `/c/:challengeId` | Challenge detail (share target) |

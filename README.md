@@ -38,6 +38,38 @@ infra/
 
 ## Run locally
 
+### One-click dev stack (Windows)
+
+From the repo root `Xershare.Pushup/`:
+
+**Prerequisites:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) (daemon running or the script will try to start it), `ngrok` on your `PATH` (with an account that can use your reserved hostname, e.g. `client-pro.ngrok.app`), Node.js/npm for the frontends, and [`backend/.venv`](backend/) with dependencies installed.
+
+```powershell
+pwsh -File .\scripts\start-dev-stack.ps1
+```
+
+This will:
+
+1. Wait for Docker (and start Docker Desktop if needed).
+2. Run `docker compose up -d db pgadmin` in the sibling [`../Xershare.Core`](../Xershare.Core) (Postgres + pgAdmin only — no Core FastAPI on port 8000).
+3. Open separate windows for: Pushup API (uvicorn on `127.0.0.1:8000`), `ngrok http 8000`, `ngrok http 5174 --url client-pro.ngrok.app`, `npm run dev` in [`app/`](app/), and `npm run dev` in [`marketing/`](marketing/).
+
+To start the API under **debugpy** (attach your IDE to `127.0.0.1:5678`; ensure `debugpy` is installed in `backend/.venv`):
+
+```powershell
+pwsh -File .\scripts\start-dev-stack.ps1 -Debug
+```
+
+If `Xershare.Core` lives somewhere other than next to `Xershare.Pushup`, pass the monorepo root explicitly:
+
+```powershell
+pwsh -File .\scripts\start-dev-stack.ps1 -MonorepoRoot 'C:\path\to\Xershare.Master'
+```
+
+You still need matching `VITE_API_BASE_URL`, `CORS_EXTRA_ORIGINS`, and Clerk allowlists for whatever ngrok URLs you use.
+
+### Manual commands
+
 **Backend**
 
 ```powershell

@@ -55,48 +55,6 @@ function NavItem({
   )
 }
 
-function NavSubLink({ to, end, label, icon }: { to: string; end?: boolean; label: string; icon: ReactNode }) {
-  return (
-    <NavLink
-      to={to}
-      end={end}
-      aria-label={label}
-      className={({ isActive }) =>
-        `app-shell__nav-link app-shell__nav-sub-link ${isActive ? 'app-shell__nav-link--active' : ''}`
-      }
-    >
-      {icon}
-      <span className="app-shell__nav-label">{label}</span>
-    </NavLink>
-  )
-}
-
-/** Sidebar rail + tab: one Videos entry; highlight while in any videos destination. */
-function isVideosDestination(pathname: string) {
-  return pathname === '/videos' || pathname === '/solo/videos' || pathname === '/videos/challenges'
-}
-
-function VideosNavRailLink() {
-  const { pathname } = useLocation()
-  const active = isVideosDestination(pathname)
-  return (
-    <NavLink
-      to="/videos"
-      aria-label="Videos"
-      className={() => `app-shell__nav-link ${active ? 'app-shell__nav-link--active' : ''}`}
-    >
-      <Icon>
-        <path
-          fill="currentColor"
-          d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6Zm14 1.5L10 12v4l8-4.5v-4Z"
-          opacity="0.9"
-        />
-      </Icon>
-      <span className="app-shell__nav-label">Videos</span>
-    </NavLink>
-  )
-}
-
 export function AppShell({ children }: { children: ReactNode }) {
   const { user } = useUser()
   const { getToken } = useAuth()
@@ -233,26 +191,27 @@ export function AppShell({ children }: { children: ReactNode }) {
         </Link>
 
         <nav className="app-shell__nav">
+          <NavItem
+            to="/dashboard"
+            end
+            label="Dashboard"
+            icon={
+              <Icon>
+                <path
+                  fill="currentColor"
+                  d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1v-9.5Z"
+                  opacity="0.9"
+                />
+              </Icon>
+            }
+          />
+
           <div>
-            <div className="app-shell__nav-section-title">Main</div>
-            <NavItem
-              to="/dashboard"
-              end
-              label="Dashboard"
-              icon={
-                <Icon>
-                  <path
-                    fill="currentColor"
-                    d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1v-9.5Z"
-                    opacity="0.9"
-                  />
-                </Icon>
-              }
-            />
+            <div className="app-shell__nav-section-title">Play</div>
             <NavItem
               to="/solo"
               end
-              label="Solo"
+              label="Start Solo"
               icon={
                 <Icon>
                   <path
@@ -265,7 +224,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             />
             <NavItem
               to="/challenge"
-              label="Challenge"
+              label="Start Challenge"
               challengeStyleActive
               icon={
                 <Icon>
@@ -277,60 +236,9 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </Icon>
               }
             />
-          </div>
-
-          <div>
-            <div className="app-shell__nav-section-title">My stuff</div>
-            <div className="app-shell__nav-videos-rail">
-              <VideosNavRailLink />
-            </div>
-            <div className="app-shell__nav-videos-expanded">
-              <div className="app-shell__nav-section-title">Videos</div>
-              <NavSubLink
-                to="/solo/videos"
-                end
-                label="Solo"
-                icon={
-                  <Icon>
-                    <path
-                      fill="currentColor"
-                      d="M7 4h10v3H7V4Zm-2 5h14v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V9Zm4 3v6h2v-6H9Zm4 0v6h2v-6h-2Z"
-                      opacity="0.9"
-                    />
-                  </Icon>
-                }
-              />
-              <NavSubLink
-                to="/videos/challenges"
-                end
-                label="Challenge"
-                icon={
-                  <Icon>
-                    <path
-                      fill="currentColor"
-                      d="M5 4h14v4H5V4Zm0 6h14v10H5V10Zm3 2v6h2v-6H8Zm4 0v6h2v-6h-2Z"
-                      opacity="0.9"
-                    />
-                  </Icon>
-                }
-              />
-            </div>
-            <NavItem
-              to="/stats"
-              label="Stats"
-              icon={
-                <Icon>
-                  <path
-                    fill="currentColor"
-                    d="M7 3h10v18H7V3Zm2 2v14h6V5H9Zm1 2h4v2h-4V7Zm0 4h4v2h-4v-2Z"
-                    opacity="0.9"
-                  />
-                </Icon>
-              }
-            />
             <NavItem
               to="/my-challenges"
-              label="Challenges"
+              label="My Challenges"
               badge={attentionCount}
               icon={
                 <Icon>
@@ -342,6 +250,55 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </Icon>
               }
             />
+          </div>
+
+          <div>
+            <div className="app-shell__nav-section-title">My Library</div>
+            <NavItem
+              to="/solo/videos"
+              end
+              label="Solo Recordings"
+              icon={
+                <Icon>
+                  <path
+                    fill="currentColor"
+                    d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6Zm14 1.5L10 12v4l8-4.5v-4Z"
+                    opacity="0.9"
+                  />
+                </Icon>
+              }
+            />
+            <NavItem
+              to="/videos/challenges"
+              end
+              label="Challenge Recordings"
+              icon={
+                <Icon>
+                  <path
+                    fill="currentColor"
+                    d="M15 8a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6Zm12 7.5-6-3.5v7l6-3.5Z"
+                    opacity="0.9"
+                  />
+                </Icon>
+              }
+            />
+            <NavItem
+              to="/stats"
+              label="My Stats"
+              icon={
+                <Icon>
+                  <path
+                    fill="currentColor"
+                    d="M7 3h10v18H7V3Zm2 2v14h6V5H9Zm1 2h4v2h-4V7Zm0 4h4v2h-4v-2Z"
+                    opacity="0.9"
+                  />
+                </Icon>
+              }
+            />
+          </div>
+
+          <div>
+            <div className="app-shell__nav-section-title">Social</div>
             <NavItem
               to="/friends"
               label="Friends"
