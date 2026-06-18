@@ -1,23 +1,17 @@
 import type { Keypoint, Pose } from '@tensorflow-models/pose-detection'
+import {
+  DEFAULT_PUSHUP_ALGORITHM_CONFIG,
+  mergePushupAlgorithmConfig,
+  type PushupAlgorithmConfig,
+} from './pushupAlgorithmConfig'
 import { POSE_KEYPOINTS } from './poseKeyPoints'
 
-/** Exclusive elbow angle bounds (°) for “arms extended” at top of rep. Exported for lab gauge; same source as `isInUpPosition`. */
-export const UP_ELBOW_DEG = { min: 130, max: 178 } as const
-
-/** Exclusive elbow angle bounds (°) for bottom of rep (with nose heuristic unchanged). Exported for lab gauge; same source as `isInDownPosition`. */
-export const DOWN_ELBOW_DEG = { min: 45, max: 85 } as const
-
-/** Cosine alignment knee–hip–shoulder; rep counting accepts a slightly wider band than early iterations. */
-export const BACK_STRAIGHT_COSINE_MIN = 0.78
-export const BACK_STRAIGHT_COSINE_MAX = 1
-
-/** Interior angle at knee (hip–knee–ankle). Near 180° = full plank; kneeling is much lower. */
-const MIN_KNEE_ANGLE_DEG = 155
-
-/** Nose vs shoulder-midline (px): below this, facing is ambiguous (relaxed for fewer dropped frames). */
-const MIN_FACING_NOSE_DELTA = 22
-
-const MIN_LEG_KEYPOINT_SCORE = 0.25
+export {
+  BACK_STRAIGHT_COSINE_MAX,
+  BACK_STRAIGHT_COSINE_MIN,
+  DOWN_ELBOW_DEG,
+  UP_ELBOW_DEG,
+} from './pushupAlgorithmConfig'
 
 export interface Body {
   shoulder: Keypoint
@@ -28,7 +22,20 @@ export interface Body {
 }
 
 export class PushupService {
-  static detectFacingDirection(pose: Pose): 'left' | 'right' | 'invalid' {
+  readonly config: PushupAlgorithmConfig
+
+  constructor(config?: Partial<PushupAlgorithmConfig>) {
+    this.config = mergePushupAlgorithmConfig(config)
+  }
+
+  detectFacingDirection(pose: Pose): 'left' | 'right' | 'invalid' {
+    return PushupService.detectFacingDirection(pose, this.config)
+  }
+
+  static detectFacingDirection(
+    pose: Pose,
+    config: PushupAlgorithmConfig = DEFAULT_PUSHUP_ALGORITHM_CONFIG,
+  ): 'left' | 'right' | 'invalid' {
     const nose = pose.keypoints.find((k) => k.name === 'nose')
     const leftShoulder = pose.keypoints.find((k) => k.name === 'left_shoulder')
     const rightShoulder = pose.keypoints.find((k) => k.name === 'right_shoulder')
@@ -47,7 +54,7 @@ export class PushupService {
 
     const shoulderMidX = (leftShoulder.x + rightShoulder.x) / 2
     const delta = nose.x - shoulderMidX
-    if (Math.abs(delta) < MIN_FACING_NOSE_DELTA) {
+    if (Math.abs(delta) < config.minFacingNoseDelta) {
       return 'invalid'
     }
 
@@ -79,19 +86,22 @@ export class PushupService {
     )
   }
 
-  isInUpPosition = (currentElbowAngle: number): boolean =>
-    currentElbowAngle > UP_ELBOW_DEG.min && currentElbowAngle < UP_ELBOW_DEG.max
+  isInUpPosition = (currentElbowAngle: number): boolean => {
+    const band = this.config.upElbowDeg
+    return currentElbowAngle > band.min && currentElbowAngle < band.max
+  }
 
   isInDownPosition = (pose: Pose, currentElbowAngle: number): boolean => {
     const nose = pose.keypoints[POSE_KEYPOINTS.NOSE]
     const leftElbow = pose.keypoints[POSE_KEYPOINTS.LEFT_ELBOW]
     const rightElbow = pose.keypoints[POSE_KEYPOINTS.RIGHT_ELBOW]
+    const band = this.config.downElbowDeg
 
     const elbowAboveNose = nose.y > leftElbow.y || nose.y > rightElbow.y
     return (
       elbowAboveNose &&
-      currentElbowAngle > DOWN_ELBOW_DEG.min &&
-      currentElbowAngle < DOWN_ELBOW_DEG.max
+      currentElbowAngle > band.min &&
+      currentElbowAngle < band.max
     )
   }
 
@@ -108,15 +118,27 @@ export class PushupService {
     return Math.abs(cosine)
   }
 
-  /**
-   * Interior angle at the knee between thigh (knee→hip) and shin (knee→ankle).
-   * Returns null if landmarks are missing or low confidence.
-   */
-  static kneeAngleDeg(hip: Keypoint, knee: Keypoint, ankle: Keypoint): number | null {
+  isBackStraightEnough(cos: number): boolean {
+    return PushupService.isBackStraightEnough(cos, this.config)
+  }
+
+  static isBackStraightEnough(
+    cos: number,
+    config: PushupAlgorithmConfig = DEFAULT_PUSHUP_ALGORITHM_CONFIG,
+  ): boolean {
+    return cos > config.backStraightCosineMin && cos < config.backStraightCosineMax
+  }
+
+  static kneeAngleDeg(
+    hip: Keypoint,
+    knee: Keypoint,
+    ankle: Keypoint,
+    config: PushupAlgorithmConfig = DEFAULT_PUSHUP_ALGORITHM_CONFIG,
+  ): number | null {
     if (
-      (hip.score ?? 0) < MIN_LEG_KEYPOINT_SCORE ||
-      (knee.score ?? 0) < MIN_LEG_KEYPOINT_SCORE ||
-      (ankle.score ?? 0) < MIN_LEG_KEYPOINT_SCORE
+      (hip.score ?? 0) < config.minLegKeypointScore ||
+      (knee.score ?? 0) < config.minLegKeypointScore ||
+      (ankle.score ?? 0) < config.minLegKeypointScore
     ) {
       return null
     }
@@ -131,7 +153,6 @@ export class PushupService {
     return (Math.acos(cos) * 180) / Math.PI
   }
 
-  /** Hip–knee–ankle angle (°) for one side. */
   getLegKneeAngleDegForSide(pose: Pose, side: 'left' | 'right'): number | null {
     const hipIndex = side === 'left' ? POSE_KEYPOINTS.LEFT_HIP : POSE_KEYPOINTS.RIGHT_HIP
     const kneeIndex = side === 'left' ? POSE_KEYPOINTS.LEFT_KNEE : POSE_KEYPOINTS.RIGHT_KNEE
@@ -140,47 +161,34 @@ export class PushupService {
       pose.keypoints[hipIndex],
       pose.keypoints[kneeIndex],
       pose.keypoints[ankleIndex],
+      this.config,
     )
   }
 
-  /** Hip–knee–ankle angle (°) for the camera-facing leg. */
   getFacingLegKneeAngleDeg(pose: Pose, direction: 'left' | 'right'): number | null {
     return this.getLegKneeAngleDegForSide(pose, direction)
   }
 
-  /** Same as facing leg, for the opposite side (fallback when facing leg is cropped or low confidence). */
   getOtherLegKneeAngleDeg(pose: Pose, direction: 'left' | 'right'): number | null {
     const other = direction === 'left' ? 'right' : 'left'
     return this.getLegKneeAngleDegForSide(pose, other)
   }
 
-  /**
-   * Knee angle (°) used for debug / lab: prefer the facing leg if it qualifies as plank; else the
-   * other leg if it qualifies; else facing or other (whichever is measured).
-   */
   getEffectivePlankKneeAngleDeg(pose: Pose, direction: 'left' | 'right'): number | null {
+    const minKnee = this.config.minKneeAngleDeg
     const facing = this.getFacingLegKneeAngleDeg(pose, direction)
     const other = this.getOtherLegKneeAngleDeg(pose, direction)
-    if (facing != null && facing >= MIN_KNEE_ANGLE_DEG) return facing
-    if (other != null && other >= MIN_KNEE_ANGLE_DEG) return other
+    if (facing != null && facing >= minKnee) return facing
+    if (other != null && other >= minKnee) return other
     return facing ?? other ?? null
   }
 
-  /**
-   * True when at least one leg reads as extended enough for a full plank (not kneeling / break).
-   * Uses the camera-facing leg first, then the other leg if facing landmarks are missing or weak.
-   * If neither side can be measured, returns false so rep phase resets conservatively.
-   */
   isLegsExtendedPlank(pose: Pose, direction: 'left' | 'right'): boolean {
+    const minKnee = this.config.minKneeAngleDeg
     const facing = this.getFacingLegKneeAngleDeg(pose, direction)
     const other = this.getOtherLegKneeAngleDeg(pose, direction)
-    if (facing != null && facing >= MIN_KNEE_ANGLE_DEG) return true
-    if (other != null && other >= MIN_KNEE_ANGLE_DEG) return true
+    if (facing != null && facing >= minKnee) return true
+    if (other != null && other >= minKnee) return true
     return false
-  }
-
-  /** Straight enough for rep counting / readiness (shared cosine band). */
-  static isBackStraightEnough(cos: number): boolean {
-    return cos > BACK_STRAIGHT_COSINE_MIN && cos < BACK_STRAIGHT_COSINE_MAX
   }
 }

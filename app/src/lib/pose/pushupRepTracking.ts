@@ -1,12 +1,7 @@
 import type { Pose } from '@tensorflow-models/pose-detection'
+import type { PushupAlgorithmConfig } from './pushupAlgorithmConfig'
 import { elbowAngleToMotion01 } from './pushupReadinessChecks'
 import { PushupService } from './pushupService'
-
-/** Consecutive frames with weak leg landmarks before clearing phase (avoids flicker under-count). */
-const LEG_WEAK_FRAMES_TO_RESET = 6
-
-/** Use last good side profile when nose delta is briefly ambiguous. */
-const MAX_DIRECTION_INVALID_FALLBACK = 12
 
 export type RepPhase = 'up' | 'down_ready'
 
@@ -42,7 +37,6 @@ const initialInvalidDebug = (): PushupRepFrameDebug => ({
   kneeAngleDeg: null,
 })
 
-/** HUD-only elbow motion when facing is invalid (fallback arm for live camera). */
 function motionDisplayFallback(pose: Pose, svc: PushupService): { motion01: number; normalizedElbowDeg: number } {
   const body = svc.getBodyValues(pose, 'left')
   const elbowAngle = svc.getPushupDegrees(body.wrist, body.elbow, body.shoulder)
@@ -54,30 +48,16 @@ function motionDisplayFallback(pose: Pose, svc: PushupService): { motion01: numb
   }
 }
 
-/*
- * ---------------------------------------------------------------------------
- * TEMPORAL ROLLING BUFFER — disabled (live + lab use frame-based counting).
- * To re-enable: restore REP_BUFFER_MS, REP_COOLDOWN_MS, REP_DOWN_MOTION01,
- * REP_UP_MOTION01, RepBufferSample, RepTrackerState, pruneBuffer, bufferMinMax,
- * advanceRepTrackerFromPose, createInitialRepTracker (buffer min/max + cooldown).
- * ---------------------------------------------------------------------------
- */
-
-/** Per-frame stable position: last validated up/down from PushupService bands. */
 export type FrameRepTrackerState = {
   lastStable: 'up' | 'down' | null
   repCount: number
-  /** Consecutive frames with !legsExtended; at LEG_WEAK_FRAMES_TO_RESET, lastStable clears. */
   legWeakStreak: number
-  /** Last unambiguous facing; used when detectFacingDirection is briefly invalid. */
   lastDirection: 'left' | 'right' | null
-  /** Frames in a row using lastDirection fallback while raw facing is invalid. */
   directionInvalidStreak: number
 }
 
 /**
  * Rep counter: `lastStable === 'down'` then validated `up` increments count.
- * Leg and facing noise use short hysteresis so brief bad landmarks do not wipe phase.
  * Used for live session and algorithm lab (same logic).
  */
 export function advanceRepTrackerFromPoseFrameBased(
@@ -87,12 +67,13 @@ export function advanceRepTrackerFromPoseFrameBased(
   vh: number,
   svc: PushupService,
   state: FrameRepTrackerState,
+  config: PushupAlgorithmConfig = svc.config,
 ): { state: FrameRepTrackerState; debug: PushupRepFrameDebug | null; repAdded: boolean } {
-  if (poseScore < 0.25 || vw <= 0 || vh <= 0) {
+  if (poseScore < config.minPoseScoreForReps || vw <= 0 || vh <= 0) {
     return { state, debug: null, repAdded: false }
   }
 
-  const rawFacing = PushupService.detectFacingDirection(pose)
+  const rawFacing = svc.detectFacingDirection(pose)
   let direction: 'left' | 'right'
   let nextLastDirection = state.lastDirection
   let nextDirectionInvalidStreak = state.directionInvalidStreak
@@ -103,7 +84,7 @@ export function advanceRepTrackerFromPoseFrameBased(
     nextDirectionInvalidStreak = 0
   } else if (
     state.lastDirection != null &&
-    state.directionInvalidStreak < MAX_DIRECTION_INVALID_FALLBACK
+    state.directionInvalidStreak < config.maxDirectionInvalidFallback
   ) {
     direction = state.lastDirection
     nextDirectionInvalidStreak = state.directionInvalidStreak + 1
@@ -128,7 +109,7 @@ export function advanceRepTrackerFromPoseFrameBased(
   const normalizedAngle =
     elbowAngle > 180 ? 360 - Math.abs(elbowAngle) : Math.abs(elbowAngle)
   const backDegrees = svc.getBackDegrees(body.knee, body.hip, body.shoulder)
-  const isBackStraight = PushupService.isBackStraightEnough(backDegrees)
+  const isBackStraight = svc.isBackStraightEnough(backDegrees)
   const isValidUp = svc.isInUpPosition(normalizedAngle)
   const isValidDown = svc.isInDownPosition(pose, normalizedAngle)
 
@@ -147,7 +128,7 @@ export function advanceRepTrackerFromPoseFrameBased(
   } else {
     nextLegWeak = state.legWeakStreak + 1
   }
-  const allowRepFsm = nextLegWeak < LEG_WEAK_FRAMES_TO_RESET
+  const allowRepFsm = nextLegWeak < config.legWeakFramesToReset
 
   let nextState: FrameRepTrackerState = state
   let repAdded = false

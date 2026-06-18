@@ -154,8 +154,17 @@ def get_challenge_expiry_hours() -> int:
         return 48
 
 
+def get_solo_video_ttl_hours() -> int:
+    """Solo session row + S3 video retention (TTL). Default 720h (~30 days)."""
+    raw = _env("SOLO_VIDEO_TTL_HOURS", "720")
+    try:
+        return max(1, min(24 * 90, int(raw or "720")))
+    except (TypeError, ValueError):
+        return 720
+
+
 def get_video_ttl_hours() -> int:
-    """Solo session video + row retention (TTL). Default 24 hours."""
+    """Challenge attempt video list/display retention. Default 24 hours."""
     raw = _env("VIDEO_TTL_HOURS", "24")
     try:
         return max(1, min(24 * 90, int(raw or "24")))

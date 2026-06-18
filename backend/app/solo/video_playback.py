@@ -8,7 +8,7 @@ from typing import Callable
 from urllib.parse import quote
 
 from app.config import get_cloudfront_key_pair_id, get_cloudfront_private_key_pem, get_cloudfront_video_domain
-from app.solo.s3_storage import presigned_video_url
+from app.solo.s3_storage import PLAYBACK_URL_TTL_SECONDS, presigned_video_url
 
 
 @lru_cache
@@ -51,7 +51,7 @@ def cloudfront_signed_video_url(base_path: str, *, expires_seconds: int) -> str 
     # Encode each path segment safely (keys may contain no unsafe chars beyond solo/*/uuid...)
     escaped = quote(base_path.strip().lstrip("/"), safe="/~")
     url = f"https://{domain}/{escaped}"
-    ttl = max(60, min(expires_seconds, 604800))
+    ttl = max(60, min(expires_seconds, PLAYBACK_URL_TTL_SECONDS))
 
     cfs = CloudFrontSigner(key_id, signer_fn)
 

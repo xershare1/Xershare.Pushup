@@ -9,16 +9,19 @@ type Props = {
   angleDeg: number | null
   /** When false, show track + guides only (no current-angle dot). */
   showMarker: boolean
+  /** Rep-band guide lines (°); defaults to code defaults from pushupAngleGauge. */
+  guideDegs?: readonly number[]
 }
 
 /**
- * Lab-only vertical elbow gauge: guides at `UP_ELBOW_DEG.min` and `DOWN_ELBOW_DEG.max` (rep transition band).
+ * Lab-only vertical elbow gauge: guides at up/down elbow band edges.
  */
-export function PushupLabAngleGauge({ angleDeg, showMarker }: Props) {
+export function PushupLabAngleGauge({ angleDeg, showMarker, guideDegs }: Props) {
+  const guides = guideDegs ?? ELBOW_GAUGE_GUIDE_DEGS
   return (
     <div className="pushup-lab-angle-gauge" aria-hidden>
       <div className="pushup-lab-angle-gauge-track">
-        {ELBOW_GAUGE_GUIDE_DEGS.map((deg) => (
+        {guides.map((deg) => (
           <div
             key={deg}
             className="pushup-lab-angle-gauge-guide"

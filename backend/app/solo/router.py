@@ -22,7 +22,7 @@ from app.config import (
     get_solo_max_reps,
     get_solo_max_video_bytes,
     get_solo_multipart_threshold_bytes,
-    get_video_ttl_hours,
+    get_solo_video_ttl_hours,
 )
 from app.db.deps import get_db_required_session
 from app.db.models.solo_session import SoloSession
@@ -43,6 +43,7 @@ from app.solo.schemas import (
     SoloSessionPrepareUploadOut,
 )
 from app.solo.s3_storage import (
+    PLAYBACK_URL_TTL_SECONDS,
     head_solo_video,
     multipart_abort,
     multipart_assert_upload_alive,
@@ -99,7 +100,8 @@ def _log_solo_prepare_timing(
 
 def _video_playback_ttl_seconds(expires_at: datetime, *, now: datetime | None = None) -> int:
     t = now or datetime.now(timezone.utc)
-    return max(60, int((expires_at - t).total_seconds()))
+    remaining = int((expires_at - t).total_seconds())
+    return max(60, min(remaining, PLAYBACK_URL_TTL_SECONDS))
 
 
 def _solo_session_out(row: SoloSession) -> SoloSessionOut:
@@ -669,7 +671,7 @@ def complete_solo_session_upload(
         )
         video_key = key
 
-    ttl_hours = get_video_ttl_hours()
+    ttl_hours = get_solo_video_ttl_hours()
     expires_at = datetime.now(timezone.utc) + timedelta(hours=ttl_hours)
     row_pk = uuid.uuid4()
 

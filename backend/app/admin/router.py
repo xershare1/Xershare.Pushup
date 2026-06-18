@@ -25,6 +25,7 @@ from app.db.models.solo_session import SoloSession
 from app.db.models.user import User
 from app.friends import service as friend_service
 from app.friends.schemas import FriendOut, FriendsListOut
+from app.solo.s3_storage import PLAYBACK_URL_TTL_SECONDS
 from app.solo.video_playback import playback_url_for_video_key
 from app.solo.schemas import SoloSessionListItem, SoloSessionListOut
 
@@ -207,7 +208,7 @@ def admin_user_solo_sessions(
             remaining = int((row.expires_at - now).total_seconds())
             video_url = playback_url_for_video_key(
                 row.video_s3_key,
-                expires_seconds=max(60, remaining),
+                expires_seconds=max(60, min(remaining, PLAYBACK_URL_TTL_SECONDS)),
             ) or None
         items.append(
             SoloSessionListItem(

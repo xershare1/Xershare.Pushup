@@ -16,6 +16,11 @@ export type CompositeSnapshot = {
 
 const ACCENT = '#ff5722'
 
+/** Scale factor relative to the iPhone baseline min-dimension (414 CSS px → 828 px at DPR 2). */
+function recordScale(cw: number, ch: number): number {
+  return Math.min(cw, ch) / 414
+}
+
 function formatTimeLeft(sec: number): string {
   const m = Math.floor(sec / 60)
   const s = sec % 60
@@ -144,17 +149,17 @@ function wrapHint(
   if (line) ctx.fillText(line, x, y)
 }
 
-function drawVoiceChip(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, muted: boolean) {
+function drawVoiceChip(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, muted: boolean, rs = 1) {
   ctx.fillStyle = muted ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.08)'
   ctx.strokeStyle = muted ? 'transparent' : 'rgba(255,255,255,0.15)'
-  ctx.lineWidth = 1
+  ctx.lineWidth = Math.max(1, rs)
   ctx.beginPath()
-  ctx.roundRect(x, y, size, size, 8)
+  ctx.roundRect(x, y, size, size, Math.round(8 * rs))
   ctx.fill()
   if (!muted) ctx.stroke()
   ctx.globalAlpha = muted ? 0.45 : 0.92
   ctx.strokeStyle = '#ffffff'
-  ctx.lineWidth = 2
+  ctx.lineWidth = Math.max(1, Math.round(2 * rs))
   ctx.lineCap = 'round'
   const ix = x + size * 0.28
   const iy = y + size * 0.38
@@ -171,6 +176,7 @@ function drawVoiceChip(ctx: CanvasRenderingContext2D, x: number, y: number, size
 }
 
 function drawActiveDefault(ctx: CanvasRenderingContext2D, cw: number, ch: number, snap: CompositeSnapshot) {
+  const rs = recordScale(cw, ch)
   const pad = Math.round(Math.min(cw, ch) * 0.03)
   const grad = ctx.createLinearGradient(0, ch - pad * 12, 0, ch)
   grad.addColorStop(0, 'rgba(0,0,0,0)')
@@ -217,15 +223,15 @@ function drawActiveDefault(ctx: CanvasRenderingContext2D, cw: number, ch: number
   const maxHintW = cw - pad * 2 - cw * 0.22
   wrapHint(ctx, hint, pad, barY - pad * 1.25, maxHintW, hintSize * 1.35)
 
-  const btnW = Math.min(cw * 0.42, 160)
+  const btnW = cw * 0.18
   const btnH = Math.max(30, Math.round(Math.min(cw, ch) * 0.065))
   const btnX = cw - pad - btnW
   const btnY = baseY - btnH + pad * 0.35
   ctx.fillStyle = 'rgba(255,255,255,0.14)'
   ctx.strokeStyle = 'rgba(255,255,255,0.28)'
-  ctx.lineWidth = 1
+  ctx.lineWidth = Math.max(1, rs)
   ctx.beginPath()
-  ctx.roundRect(btnX, btnY, btnW, btnH, 8)
+  ctx.roundRect(btnX, btnY, btnW, btnH, Math.round(8 * rs))
   ctx.fill()
   ctx.stroke()
   ctx.font = `600 ${Math.max(12, Math.round(btnH * 0.38))}px system-ui, sans-serif`
@@ -235,22 +241,23 @@ function drawActiveDefault(ctx: CanvasRenderingContext2D, cw: number, ch: number
   ctx.fillText('End session', btnX + btnW / 2, btnY + btnH / 2)
 
   if (snap.voiceHudVisible) {
-    drawVoiceChip(ctx, btnX - pad * 0.5 - btnH, btnY, btnH, snap.voiceMuted)
+    drawVoiceChip(ctx, btnX - pad * 0.5 - btnH, btnY, btnH, snap.voiceMuted, rs)
   }
 }
 
 function drawActiveSolo(ctx: CanvasRenderingContext2D, cw: number, ch: number, snap: CompositeSnapshot) {
-  const padTop = Math.round(Math.min(cw, ch) * 0.035 + 8)
+  const rs = recordScale(cw, ch)
   const padX = Math.round(Math.min(cw, ch) * 0.045)
+  const padTop = Math.round(Math.min(cw, ch) * 0.035 + Math.round(padX * 0.5))
 
   const urgent = snap.remainingSec < 15
   const timerCardW = Math.max(88, cw * 0.26)
   const timerCardH = Math.round(timerCardW * 0.52)
   ctx.fillStyle = 'rgba(13,13,15,0.8)'
   ctx.strokeStyle = 'rgba(255,255,255,0.1)'
-  ctx.lineWidth = 1
+  ctx.lineWidth = Math.max(1, rs)
   ctx.beginPath()
-  ctx.roundRect(padX, padTop, timerCardW, timerCardH, 10)
+  ctx.roundRect(padX, padTop, timerCardW, timerCardH, Math.round(10 * rs))
   ctx.fill()
   ctx.stroke()
 
@@ -270,7 +277,7 @@ function drawActiveSolo(ctx: CanvasRenderingContext2D, cw: number, ch: number, s
   ctx.fillStyle = 'rgba(255,255,255,0.09)'
   ctx.strokeStyle = 'rgba(255,255,255,0.14)'
   ctx.beginPath()
-  ctx.roundRect(stopX, padTop, stopW, btnH, 8)
+  ctx.roundRect(stopX, padTop, stopW, btnH, Math.round(8 * rs))
   ctx.fill()
   ctx.stroke()
   ctx.font = `600 ${Math.max(12, btnH * 0.34)}px system-ui, sans-serif`
@@ -282,7 +289,7 @@ function drawActiveSolo(ctx: CanvasRenderingContext2D, cw: number, ch: number, s
   if (snap.voiceHudVisible) {
     const vs = btnH
     const voiceLeft = stopX - padX * 0.5 - vs
-    drawVoiceChip(ctx, voiceLeft, padTop, vs, snap.voiceMuted)
+    drawVoiceChip(ctx, voiceLeft, padTop, vs, snap.voiceMuted, rs)
   }
 
   ctx.textAlign = 'center'
@@ -317,16 +324,16 @@ function drawActiveSolo(ctx: CanvasRenderingContext2D, cw: number, ch: number, s
     ctx.font = `600 ${warnSize}px system-ui, sans-serif`
     ctx.fillStyle = 'rgba(255,193,7,0.95)'
     ctx.strokeStyle = 'rgba(0,0,0,0.35)'
-    ctx.lineWidth = 3
+    ctx.lineWidth = Math.round(3 * rs)
     const msg = 'Move back into frame to continue'
-    const ty = padTop + timerCardH + 10
+    const ty = padTop + timerCardH + Math.round(padTop * 0.5)
     ctx.strokeText(msg, cw / 2, ty)
     ctx.fillText(msg, cw / 2, ty)
   }
 
-  const barW = Math.min(240, cw * 0.7)
-  const barH = 3
-  const barBottom = ch - padTop - Math.min(ch * 0.018, 12)
+  const barW = cw * 0.27
+  const barH = Math.round(3 * rs)
+  const barBottom = ch - padTop - ch * 0.018
   drawMotionBar(ctx, cw / 2, barBottom - barH, barW, barH, snap.motion01)
 }
 

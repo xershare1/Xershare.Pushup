@@ -12,13 +12,14 @@ import {
 import type { CountUpProps } from 'react-countup'
 import CountUpImport from 'react-countup'
 import { motion } from 'framer-motion'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 import { createSoloSession, type SoloCloudPhase } from '../../api/solo'
 import { loadSoloMultipartState, soloAbortMultipartUpload } from '../../api/soloMultipartUpload'
 import { formatError } from '../../lib/formatError'
 import { getSoloResultsFeedbackLine, getWorkoutFeedback } from '../../lib/workoutFeedback'
 import type { SessionStartCaptureContext } from '../../lib/capture/sessionCaptureContext'
+import { savePushupLabHandoff } from '../../lib/pose/pushupLabHandoff'
 
 /** CJS/ESM interop: Vite may give the component or a module object with `.default`. */
 const CountUp: FC<CountUpProps> =
@@ -82,6 +83,7 @@ export function SessionResults({
   sessionCaptureContext = null,
 }: Props) {
   const { getToken } = useAuth()
+  const navigate = useNavigate()
   const feedbackDefault = getWorkoutFeedback(reps)
 
   const isNewPersonalBest =
@@ -185,6 +187,23 @@ export function SessionResults({
     const id = soloSyncKey ?? 'session'
     return `pushup-session-${id}.${ext}`
   }, [sessionRecording, soloSyncKey])
+
+  const analyzeInLab = useCallback(async () => {
+    if (!sessionRecording || !import.meta.env.DEV) return
+    try {
+      await savePushupLabHandoff({
+        blob: sessionRecording,
+        fileName: downloadFilename,
+        reps,
+        variant,
+        durationSec: sessionDurationSec,
+        exportedAt: new Date().toISOString(),
+      })
+      navigate('/dev/pushup-lab')
+    } catch (e) {
+      console.error('[pushup-lab] handoff failed', e)
+    }
+  }, [sessionRecording, downloadFilename, reps, variant, sessionDurationSec, navigate])
 
   useEffect(() => {
     if (!soloSyncKey) return
@@ -503,9 +522,18 @@ export function SessionResults({
           </a>
         ) : null}
         {sessionRecording && import.meta.env.DEV ? (
+          <button
+            type="button"
+            className="btn btn-secondary pushup-results-cta-secondary"
+            onClick={() => void analyzeInLab()}
+          >
+            Analyze in pushup lab
+          </button>
+        ) : null}
+        {sessionRecording && import.meta.env.DEV ? (
           <p className="pushup-results-recording-hint muted">
-            Usually WebM. Upload the file in{' '}
-            <Link to="/dev/pushup-lab">Pushup algorithm lab</Link> to replay and tune detection.
+            Usually WebM. Use <strong>Analyze in pushup lab</strong> or upload the file at{' '}
+            <Link to="/dev/pushup-lab">Pushup algorithm lab</Link>.
           </p>
         ) : sessionRecording ? (
           <p className="pushup-results-recording-hint muted">

@@ -10,11 +10,13 @@ from typing import Any
 from app.config import (
     get_aws_region,
     get_aws_s3_bucket,
-    get_video_ttl_hours,
     solo_video_default_cache_control,
 )
 
 logger = logging.getLogger(__name__)
+
+# Presigned/signed GET for watch/download — independent of SOLO_VIDEO_TTL_HOURS (S3 object retention).
+PLAYBACK_URL_TTL_SECONDS = 3600
 
 _s3_lock = threading.Lock()
 _s3_client: Any = None
@@ -306,7 +308,7 @@ def presigned_video_url(s3_key: str, *, expires_seconds: int) -> str:
     bucket = get_aws_s3_bucket()
     if not bucket or not s3_key:
         return ""
-    ttl = max(60, min(expires_seconds, int(get_video_ttl_hours() * 3600 * 2)))
+    ttl = max(60, min(expires_seconds, PLAYBACK_URL_TTL_SECONDS))
     return _client().generate_presigned_url(
         "get_object",
         Params={"Bucket": bucket, "Key": s3_key},

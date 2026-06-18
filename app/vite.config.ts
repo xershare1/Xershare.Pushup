@@ -103,7 +103,7 @@ export default defineConfig({
     port: 5174,
     strictPort: true,
     allowedHosts: [
-      'reservoir-techno-directly-pierre.trycloudflare.com'
+      'client-pro.ngrok.app'
     ]
   },
 })
